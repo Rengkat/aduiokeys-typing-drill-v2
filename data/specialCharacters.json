@@ -1,0 +1,23 @@
+{
+  "!": "Exclamation mark",
+  ".": "Period",
+  "?": "Question mark",
+  ";": "Semicolon",
+  ",": "Comma",
+  ":": "Colon",
+  "'": "Apostrophe",
+  "\"": "Quotation mark",
+  "-": "Hyphen",
+  "_": "Underscore",
+  "(": "Open parenthesis",
+  ")": "Close parenthesis",
+  "$": "Dollar sign",
+  "%": "Percent sign",
+  "&": "Ampersand",
+  "@": "At sign",
+  "#": "Hash sign",
+  "/": "Slash",
+  " ": "Spacebar",
+  "z": "Zed",
+  "Z": "Zed"
+}

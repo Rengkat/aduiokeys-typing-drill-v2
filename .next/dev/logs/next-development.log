@@ -1,0 +1,23 @@
+{"timestamp":"00:00:39.235","source":"Server","level":"WARN","message":"⚠ Slow filesystem detected. The benchmark took 1306ms. If C:\\Users\\USER\\Downloads\\fix\\.next/dev is a network drive, consider moving it to a local folder.\nSee more: https://nextjs.org/docs/app/guides/local-development"}
+{"timestamp":"00:00:56.953","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:07:19.424","source":"Server","level":"LOG","message":"○ Compiling / ..."}
+{"timestamp":"00:10:08.726","source":"Server","level":"LOG","message":"✓ Finished writing to filesystem cache in 10.6s"}
+{"timestamp":"00:28:20.903","source":"Server","level":"LOG","message":"✓ Compiled in 2.7s"}
+{"timestamp":"00:29:12.237","source":"Server","level":"LOG","message":"✓ Compiled in 1593ms"}
+{"timestamp":"00:29:24.626","source":"Server","level":"LOG","message":"✓ Compiled in 917ms"}
+{"timestamp":"00:31:28.225","source":"Server","level":"LOG","message":"✓ Compiled in 1031ms"}
+{"timestamp":"00:34:04.456","source":"Browser","level":"WARN","message":"HTML5 Audio pool exhausted, returning potentially locked audio object."}
+{"timestamp":"00:34:05.019","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mHTML5 Audio pool exhausted, returning potentially locked audio object.\\u001b[39m\""}
+{"timestamp":"00:34:05.021","source":"Browser","level":"WARN","message":"\u001b[33mHTML5 Audio pool exhausted, returning potentially locked audio object.\u001b[39m"}
+{"timestamp":"00:44:26.112","source":"Server","level":"LOG","message":"✓ Compiled in 1038ms"}
+{"timestamp":"00:44:33.685","source":"Browser","level":"WARN","message":"HTML5 Audio pool exhausted, returning potentially locked audio object."}
+{"timestamp":"00:44:33.686","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mHTML5 Audio pool exhausted, returning potentially locked audio object.\\u001b[39m\""}
+{"timestamp":"00:44:33.687","source":"Browser","level":"WARN","message":"\u001b[33mHTML5 Audio pool exhausted, returning potentially locked audio object.\u001b[39m"}
+{"timestamp":"00:44:39.595","source":"Browser","level":"WARN","message":"HTML5 Audio pool exhausted, returning potentially locked audio object."}
+{"timestamp":"00:44:39.600","source":"Server","level":"WARN","message":"[browser] \"\\u001b[33mHTML5 Audio pool exhausted, returning potentially locked audio object.\\u001b[39m\""}
+{"timestamp":"00:44:39.600","source":"Browser","level":"WARN","message":"\u001b[33mHTML5 Audio pool exhausted, returning potentially locked audio object.\u001b[39m"}
+{"timestamp":"00:45:17.529","source":"Server","level":"LOG","message":"✓ Compiled in 895ms"}
+{"timestamp":"00:57:27.329","source":"Server","level":"LOG","message":"✓ Compiled in 846ms"}
+{"timestamp":"01:02:32.714","source":"Server","level":"LOG","message":"✓ Compiled in 879ms"}
+{"timestamp":"01:05:39.136","source":"Server","level":"LOG","message":"✓ Compiled in 767ms"}
+{"timestamp":"01:09:04.613","source":"Server","level":"LOG","message":"✓ Finished filesystem cache database compaction in 13.1s"}
