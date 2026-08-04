@@ -51,15 +51,8 @@ export default function HomePage() {
   const [hydrated, setHydrated] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
   const { createProfile, profiles, switchProfile, currentProfile } = useProfile();
-  const {
-    speak,
-    playSound,
-    screenReaderMode,
-    setScreenReaderMode,
-    availableVoices,
-    voiceURI,
-    setVoiceURI,
-  } = useAudio();
+  const { speak, playSound, screenReaderMode, setScreenReaderMode, availableVoices, voiceURI, setVoiceURI } =
+    useAudio();
   const router = useRouter();
   const usernameInputRef = useRef<HTMLInputElement>(null);
 
@@ -256,7 +249,7 @@ export default function HomePage() {
 
   if (!hydrated) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-dark">
+      <div className="h-dvh flex items-center justify-center bg-dark">
         <div className="flex flex-col items-center gap-4">
           <Keyboard className="w-12 h-12 text-accent animate-pulse" />
           <div className="text-accent text-xl font-medium tracking-wide">Loading AudioKeys...</div>
@@ -278,30 +271,44 @@ export default function HomePage() {
   // this app's voice, once in JAWS/NVDA/VoiceOver's voice, talking over
   // each other. Keyboard-operable: a native checkbox, focusable and
   // toggled with Space, no mouse needed.
-  const handleScreenReaderModeToggle = () => {
-    const next = !screenReaderMode;
-    setScreenReaderMode(next);
+  //
+  // Screen reader mode is the DEFAULT (see loadScreenReaderMode in the
+  // store) — most AudioKeys students are blind and already running
+  // JAWS/NVDA/VoiceOver, so staying quiet and deferring to it is the safe
+  // out-of-the-box behavior. This checkbox is the opt-OUT: unchecked
+  // (default) means screen reader mode stays on; checking it is an
+  // explicit "I don't have a screen reader, use AudioKeys' own voice"
+  // — for a sighted student, teacher, or anyone trying the app without
+  // assistive tech running.
+  const handleUseAppVoiceToggle = () => {
+    // Simply flip current state. (A previous version of this computed
+    // `useAppVoice = !screenReaderMode` then `next = !useAppVoice` —
+    // those two negations cancel out, so it always set screenReaderMode
+    // back to itself. That's the exact bug where the checkbox looked
+    // checked and refused to uncheck: clicking it did compute a "next"
+    // value, it just always came out equal to the current one.)
+    const nextScreenReaderMode = !screenReaderMode;
+    setScreenReaderMode(nextScreenReaderMode);
     playSound("select");
     setLiveMessage(
-      next
+      nextScreenReaderMode
         ? "Screen reader mode on. AudioKeys will stay quiet and let your screen reader announce everything."
-        : "Screen reader mode off. AudioKeys will speak announcements itself.",
+        : "AudioKeys' own voice is on. It will speak announcements itself.",
     );
   };
 
   const ScreenReaderModeToggle = (
     <label
       className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-dark-secondary border border-white/10 text-sm cursor-pointer focus-within:ring-2 focus-within:ring-accent"
-      htmlFor="screen-reader-mode-toggle">
+      htmlFor="use-app-voice-toggle">
       <span className="text-text-muted">
-        I&apos;m using a screen reader (JAWS, NVDA, VoiceOver) — let it read announcements instead
-        of AudioKeys&apos; own voice
+        I don&apos;t use a screen reader — use AudioKeys&apos; own voice instead of JAWS, NVDA, or VoiceOver
       </span>
       <input
-        id="screen-reader-mode-toggle"
+        id="use-app-voice-toggle"
         type="checkbox"
-        checked={screenReaderMode}
-        onChange={handleScreenReaderModeToggle}
+        checked={!screenReaderMode}
+        onChange={handleUseAppVoiceToggle}
         className="w-5 h-5 shrink-0 accent-accent"
       />
     </label>
@@ -453,7 +460,7 @@ export default function HomePage() {
     const stageIndex = STAGE_ORDER.indexOf(currentProfile.level);
 
     return (
-      <div className="min-h-dvh w-full overflow-y-auto flex flex-col p-4 md:p-6 gap-3 md:gap-4 bg-dark">
+      <div className="h-dvh w-full overflow-hidden flex flex-col p-4 md:p-6 gap-3 md:gap-4 bg-dark">
         {LiveRegion}
         {CreateProfileDialog}
 
@@ -562,10 +569,10 @@ export default function HomePage() {
           Continue Practice
         </button>
 
-        {/* Zone 3 & 4 — Bottom Container */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+        {/* Zone 3 & 4 — Bottom Container with fixed internal scrolling */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           {/* Card A: Recent Progress */}
-          <div className="glass-card flex flex-col justify-between p-4 md:p-5">
+          <div className="glass-card flex flex-col justify-between p-4 md:p-5 overflow-hidden">
             <div className="flex flex-col justify-center flex-1">
               <h2 className="shrink-0 text-xs font-bold text-text-muted uppercase tracking-wider mb-2 md:mb-3 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-accent" />
@@ -600,15 +607,15 @@ export default function HomePage() {
           </div>
 
           {/* Card B: Switch Profile / New Learner */}
-          <div className="glass-card flex flex-col justify-between p-4 md:p-5">
-            <div className="flex flex-col flex-1 justify-between">
+          <div className="glass-card flex flex-col justify-between p-4 md:p-5 overflow-hidden">
+            <div className="flex flex-col min-h-0 flex-1 justify-between">
               {profiles.length > 1 && (
-                <div className="flex flex-col mb-2">
+                <div className="flex flex-col min-h-0 mb-2">
                   <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-2 shrink-0">
                     <Users className="w-4 h-4 text-accent" />
                     Switch Profile
                   </h2>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-1">
+                  <div className="space-y-1.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-1">
                     {profiles
                       .filter((p) => p.username !== currentProfile.username)
                       .map((profile) => (
@@ -654,11 +661,11 @@ export default function HomePage() {
   // NO ACTIVE PROFILE — onboarding/selection
   // ============================================
   return (
-    <div className="min-h-dvh w-full overflow-y-auto flex flex-col items-center justify-center p-4 md:p-6 bg-dark">
+    <div className="h-dvh w-full overflow-hidden flex flex-col items-center justify-center p-4 md:p-6 bg-dark">
       {LiveRegion}
       {CreateProfileDialog}
 
-      <div className="w-full max-w-xl flex flex-col gap-6 my-auto">
+      <div className="w-full max-w-xl flex flex-col min-h-0 gap-6">
         <div className="shrink-0 text-center space-y-3" role="banner">
           <div className="flex justify-center">
             <div className="p-4 bg-accent/10 border border-accent/20 rounded-3xl animate-float">
@@ -675,7 +682,7 @@ export default function HomePage() {
         {VoicePicker}
 
         {profiles.length > 0 ? (
-          <div className="glass-card flex flex-col p-5 md:p-6">
+          <div className="glass-card flex flex-col min-h-0 p-5 md:p-6">
             <h2
               className="shrink-0 text-base font-semibold mb-3 flex items-center gap-2 text-white"
               id="profile-list-title">
@@ -683,7 +690,7 @@ export default function HomePage() {
               Select Your Profile
             </h2>
             <div
-              className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-1"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto min-h-0 pr-1"
               role="list"
               aria-labelledby="profile-list-title">
               {profiles.map((profile) => (

@@ -649,12 +649,20 @@ function speakNow(text, options) {
 const SCREEN_READER_MODE_KEY = "audiokeys_screen_reader_mode";
 const VOICE_URI_KEY = "audiokeys_voice_uri";
 function loadScreenReaderMode() {
+    // Defaults to ON. Most of AudioKeys' users are blind students who
+    // already run JAWS/NVDA/VoiceOver, so the safe out-of-the-box behavior
+    // is to stay quiet and let their screen reader do the narrating —
+    // exactly the mode that avoids the double-voice problem. A sighted
+    // student/teacher setting up a profile is the exception, and opts out
+    // explicitly (see the "use AudioKeys' own voice" checkbox), which is
+    // the only thing that ever writes an explicit "0" here.
     if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
     ;
     try {
-        return window.localStorage.getItem(SCREEN_READER_MODE_KEY) === "1";
+        const stored = window.localStorage.getItem(SCREEN_READER_MODE_KEY);
+        return stored === null ? true : stored === "1";
     } catch  {
-        return false;
+        return true;
     }
 }
 function loadVoiceURI() {
@@ -669,7 +677,9 @@ function loadVoiceURI() {
 const useAudioStore = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zustand$2f$esm$2f$react$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["create"])((set, get)=>({
         isSpeaking: false,
         volume: 1,
-        screenReaderMode: false,
+        // Matches loadScreenReaderMode()'s default below — true until init() has
+        // had a chance to read any explicit stored preference.
+        screenReaderMode: true,
         availableVoices: [],
         voiceURI: null,
         init: ()=>{

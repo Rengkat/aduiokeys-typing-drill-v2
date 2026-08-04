@@ -16,7 +16,7 @@
       "title": "Home Row Foundation",
       "mode": "keys",
       "metric": "kpm",
-      "targetValue": 16,
+      "targetValue": 12,
       "targetAccuracy": 95,
       "description": "First contact with the keyboard \u2014 just A S D F J K L ; . Accuracy matters far more than speed here.",
       "celebration": "You've found your home base! Every word you'll ever type starts from these keys."
@@ -27,7 +27,7 @@
       "title": "Home Row Complete",
       "mode": "keys",
       "metric": "kpm",
-      "targetValue": 24,
+      "targetValue": 18,
       "targetAccuracy": 95,
       "description": "Adds G and H \u2014 the last two home row keys \u2014 and builds real fluency across the full row.",
       "celebration": "Home row mastered, start to finish. Your fingers know the way now."
@@ -38,7 +38,7 @@
       "title": "Top Row Expansion",
       "mode": "keys",
       "metric": "kpm",
-      "targetValue": 28,
+      "targetValue": 22,
       "targetAccuracy": 94,
       "description": "Q W E R T Y U I O P \u2014 reaching up from home row.",
       "celebration": "You've climbed the top row! That's over half the alphabet under your fingers."
@@ -49,7 +49,7 @@
       "title": "Bottom Row Expansion",
       "mode": "keys",
       "metric": "kpm",
-      "targetValue": 32,
+      "targetValue": 26,
       "targetAccuracy": 93,
       "description": "Z X C V B N M , . / \u2014 reaching down from home row. Completes the full alphabet.",
       "celebration": "The entire alphabet is yours now. That's the hardest part behind you."
@@ -60,7 +60,7 @@
       "title": "Numbers & Symbols",
       "mode": "keys",
       "metric": "kpm",
-      "targetValue": 28,
+      "targetValue": 22,
       "targetAccuracy": 90,
       "description": "Number row plus common shifted symbols. A gentler accuracy bar \u2014 these reaches are genuinely harder.",
       "celebration": "Numbers and symbols down. You can type anything a keyboard has to offer."

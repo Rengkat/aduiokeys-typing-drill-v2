@@ -65,12 +65,17 @@ export default function StagePage({ params }: StagePageProps) {
   const { stageId: routeParam } = use(params);
   const router = useRouter();
   const { currentProfile, updateProfile, isHydrated } = useProfile();
-  const { speak, playSound } = useAudio();
+  const { speak, playSound, screenReaderMode } = useAudio();
   const { logKeystroke, sessionId, flushBuffer } = useKeystrokeLogger();
 
   const stage = getStageByRoute(routeParam);
   const speedLabel = stage.metric === "kpm" ? "KPM" : "WPM";
 
+  // The queue is now built from the real curriculum data (data/dictionaries)
+  // via generateLesson(), and — once the student's weak keys and due
+  // spaced-repetition items are loaded — biased toward their actual trouble
+  // spots. That fetch is async, so the queue starts empty and is populated
+  // by the effect below rather than a synchronous useRef.
   const [wordQueue, setWordQueue] = useState<QueueWord[]>([]);
   const [queueReady, setQueueReady] = useState(false);
 
@@ -98,12 +103,37 @@ export default function StagePage({ params }: StagePageProps) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const wordListRef = useRef<HTMLDivElement>(null);
   const audioCtxRef = useRef<globalThis.AudioContext | null>(null);
-
+  // Guards against double-advancing the SAME word (e.g. a stray duplicate
+  // event). Keyed to the word index itself rather than a wall-clock cooldown
+  // — a time-based cooldown (the old approach) blocks legitimate rapid-fire
+  // completions of *different* words, which is exactly what single-letter
+  // key-drill stages produce from a fast typist: every keystroke completes
+  // a new word, often well under 150ms apart. That mismatch was the actual
+  // cause of "every other letter needs Enter" — the second completion was
+  // silently dropped by the cooldown, leaving currentCharIndex stuck at the
+  // word's length until Enter forced a re-check past the (by-then-expired)
   // cooldown.
   const lastCompletedWordIndexRef = useRef(-1);
   const announcedTimeWarnings = useRef<Set<number>>(new Set());
+  // Guards finishSession() against firing more than once when timeLeft
+  // hits 0 — see the timer side-effects useEffect below.
+  const sessionEndedRef = useRef(false);
   const wordCompleteCount = useRef(0);
 
+  // --- Stale-closure guards ------------------------------------------
+  // handleWordComplete/finishSession get scheduled from inside
+  // handleKeyDown via setTimeout, which "freezes" a reference to whichever
+  // render's handleKeyDown/handleWordComplete/finishSession created that
+  // timeout. Because React state setters are asynchronous, that frozen
+  // closure was reading currentCharIndex/currentWordIndex/keystrokes/speed
+  // as they were *before* the very keystroke that triggered the timeout —
+  // e.g. on the last letter of the last word, currentCharIndex inside that
+  // closure was still word.length - 1, never word.length. That made the
+  // stage-complete check (`currentCharIndex >= currentWord.length`) false
+  // even when the student had genuinely finished, so level-up never fired.
+  // These refs are updated synchronously at the same point the matching
+  // state setter is called, so any closure — however stale — can read the
+  // true current value via `.current`.
   const currentWordIndexRef = useRef(0);
   const currentCharIndexRef = useRef(0);
   const keystrokesRef = useRef({ correct: 0, total: 0 });
@@ -118,20 +148,78 @@ export default function StagePage({ params }: StagePageProps) {
   // cases where the word-start announcement is already being handled
   // manually (initial mount, restart).
   const suppressNextWordAnnounceRef = useRef(true);
-
+  // Resolves once the current item's sentence+word intro has finished
+  // playing. Typing is never blocked while that intro plays — a student
+  // who already recognizes the word from hearing it should be free to
+  // start typing immediately — but the per-letter "announce the next
+  // letter" effect below used to fire on priority:"high", which cancels
+  // whatever's currently speaking. That meant a fast/confident typist's
+  // very first keystroke would cut the word's own pronunciation off
+  // mid-word, so it sounded like "some words just don't get said" even
+  // though every word's announcement is always started; it just wasn't
+  // always allowed to finish. Letter announcements now await this promise
+  // first, so the intro always plays in full before anything interrupts it.
   const introInFlightRef = useRef<Promise<void>>(Promise.resolve());
 
   const currentItem = wordQueue[currentWordIndex];
   const currentWord = currentItem?.word || "";
   const totalWords = wordQueue.length;
 
+  // Screen readers announce aria-live regions by watching for DOM
+  // mutations. React, however, bails out of re-rendering — and therefore
+  // never touches the DOM — when a state setter is called with a value
+  // that's already the current state (documented React behavior). That
+  // means two consecutive identical announcements go completely silent for
+  // a real screen reader: the letter "o" twice in a row in "book", "t"
+  // twice in "letter", back-to-back single-letter drills in Stage 1-5 that
+  // repeat, or a sentence word ending in the same letter the next one
+  // starts with. This app's own synthesized voice (speak(), below) isn't
+  // affected — it fires unconditionally every call — which is exactly why
+  // it looked like "the word gets said but the letter randomly doesn't":
+  // TTS always played, but the live region powering an actual screen
+  // reader silently no-opped on repeats. Clearing the region first, then
+  // setting the real text a frame later, guarantees "" -> text is always a
+  // change, so the announcement is never skipped.
   const setLiveMessageForced = useCallback((text: string) => {
     setLiveMessage("");
     requestAnimationFrame(() => setLiveMessage(text));
   }, []);
 
+  // Every announcement in the stage (word, letter, encouragement,
+  // correction) ultimately wants to update this one live region, and in
+  // screen reader mode nothing else paces them relative to each other —
+  // our own speechSynthesis never actually speaks in that mode (see
+  // useAudioStore.speak), so the app has no way to know when JAWS/NVDA/
+  // VoiceOver has actually finished reading the last thing it announced.
+  // Without this queue, an encouragement fired right as the next letter
+  // starts (e.g. every 3rd word) would call setLiveMessageForced twice
+  // within milliseconds of each other; a real screen reader mid-utterance
+  // on the first update gets its speech cut off/dropped by the second and
+  // goes silent — exactly the "stops after the encouragement, blind
+  // student gets stuck" symptom. This serializes every live-region update
+  // behind a promise chain and, in screen reader mode only, waits out a
+  // rough estimate of how long that text would take a screen reader to
+  // read before letting the next one in — the same estimate already used
+  // to pace the app's own voice. In app-voice mode this is a no-op pass
+  // through to setLiveMessageForced with no added delay, since that path
+  // already works correctly (paced by the browser's real speechSynthesis
+  // engine instead).
+  const liveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const queueLiveMessage = useCallback(
+    (text: string) => {
+      liveQueueRef.current = liveQueueRef.current.then(async () => {
+        setLiveMessageForced(text);
+        if (screenReaderMode) {
+          const estimatedMs = Math.max(900, text.length * 90);
+          await new Promise((r) => setTimeout(r, estimatedMs));
+        }
+      });
+    },
+    [setLiveMessageForced, screenReaderMode],
+  );
+
   const announce = (text: string, options?: Parameters<typeof speak>[1]) => {
-    setLiveMessageForced(text);
+    queueLiveMessage(text);
     speak(text, options);
   };
 
@@ -216,40 +304,37 @@ export default function StagePage({ params }: StagePageProps) {
   // word -> letter flow that every stage uses. For single-character items
   // (Stage_1-5 key drills), the "word" and the "first letter" are the same
   // character, so the letter announcement is skipped to avoid saying it twice.
-  const announceItemStart = useCallback(
-    async (item: QueueWord, token: number) => {
-      let resolveIntro!: () => void;
-      introInFlightRef.current = new Promise<void>((resolve) => {
-        resolveIntro = resolve;
-      });
+  const announceItemStart = useCallback(async (item: QueueWord, token: number) => {
+    let resolveIntro!: () => void;
+    introInFlightRef.current = new Promise<void>((resolve) => {
+      resolveIntro = resolve;
+    });
 
-      try {
-        if (item.sentenceIntro) {
-          setCurrentSentenceText(item.sentenceIntro);
-          setLiveMessageForced(item.sentenceIntro);
-          await speakAndWait(item.sentenceIntro, { priority: "high" });
-          if (speechTokenRef.current !== token) return;
-        }
-
-        setLiveMessageForced(item.word);
-        await speakAndWait(speakableWord(item.word), { priority: "high" });
+    try {
+      if (item.sentenceIntro) {
+        setCurrentSentenceText(item.sentenceIntro);
+        queueLiveMessage(item.sentenceIntro);
+        await speakAndWait(item.sentenceIntro, { priority: "high" });
         if (speechTokenRef.current !== token) return;
-      } finally {
-        // Resolve even on early return/abandonment, or any waiting letter
-        // announcement would hang forever.
-        resolveIntro();
       }
 
-      if (item.word.length > 1) {
-        const firstLetter = item.word[0];
-        if (firstLetter) {
-          setLiveMessageForced(firstLetter);
-          await speakAndWait(speakableChar(firstLetter), { priority: "high" });
-        }
+      queueLiveMessage(speakableWord(item.word));
+      await speakAndWait(speakableWord(item.word), { priority: "high" });
+      if (speechTokenRef.current !== token) return;
+    } finally {
+      // Resolve even on early return/abandonment, or any waiting letter
+      // announcement would hang forever.
+      resolveIntro();
+    }
+
+    if (item.word.length > 1) {
+      const firstLetter = item.word[0];
+      if (firstLetter) {
+        queueLiveMessage(speakableChar(firstLetter));
+        await speakAndWait(speakableChar(firstLetter), { priority: "high" });
       }
-    },
-    [setLiveMessageForced],
-  );
+    }
+  }, [setLiveMessageForced, queueLiveMessage]);
 
   // Fetch the student's weak keys + due spaced-repetition items, build the
   // real lesson queue from them, then kick off the mount announcement chain.
@@ -278,6 +363,14 @@ export default function StagePage({ params }: StagePageProps) {
       setWordQueue(queue);
       setQueueReady(true);
 
+      // inputRef.current is still null here — the <input> hasn't been
+      // created yet, it only mounts on the *next* render once queueReady
+      // flips to true. A same-tick focus() call was always a silent no-op;
+      // real initial focus was riding entirely on the native `autoFocus`
+      // attribute firing the instant the element mounts, giving JAWS zero
+      // time to process the new DOM before focus moved into it. Wait for
+      // the ref to actually attach, then focus one frame later so the
+      // browser has painted (and the AT has a beat to catch up) first.
       const focusWhenMounted = (attemptsLeft = 20) => {
         if (inputRef.current) {
           requestAnimationFrame(() => inputRef.current?.focus());
@@ -339,31 +432,36 @@ export default function StagePage({ params }: StagePageProps) {
       // If several keystrokes landed while we were waiting, only the most
       // recent one should still announce; older ones are stale by now.
       if (speechTokenRef.current !== token) return;
-      setLiveMessageForced(letter);
+      // Live region text must match what speakAndWait actually says below —
+      // both channels need to go through speakableChar so a real screen
+      // reader (which reads this live region, not our own TTS) says "Zed"
+      // for z, "M, as in Mike" for m, etc., the same as the app's own
+      // voice does. Passing the raw letter here used to leave JAWS/NVDA to
+      // guess its own pronunciation, which is where "z" -> "zee" and the
+      // easily-confused "m"/"n" letter names came from — that's the screen
+      // reader's own TTS engine, not this app's, so this JSON mapping is
+      // the only lever we have over it.
+      queueLiveMessage(speakableChar(letter));
       await speakAndWait(speakableChar(letter), { priority: "high" });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCharIndex]);
 
-  // Timer logic
+  // Timer logic — this effect's only job is decrementing the number. Kept
+  // deliberately pure: the setTimeLeft updater below used to also call
+  // announce() (for the 30/10/5s warnings) and finishSession() directly,
+  // both of which call the Zustand audio store's own setState. Calling
+  // that from inside a React setState updater function is what produced
+  // "Cannot update a component (StagePage) while rendering a different
+  // component (StagePage)" once the timer actually hit zero — React
+  // invokes updater functions as part of its own render/commit work, and
+  // an external store's setState firing mid-way through that collides
+  // with it. All side effects now live in the effect below instead, which
+  // runs as a normal, safe effect after commit.
   useEffect(() => {
     if (isActive && !isPaused && timeLeft > 0) {
       timerRef.current = setInterval(() => {
-        setTimeLeft((prev: any) => {
-          const next = prev - 1;
-
-          if ([30, 10, 5, 3, 2, 1].includes(next) && !announcedTimeWarnings.current.has(next)) {
-            announcedTimeWarnings.current.add(next);
-            announce(next <= 5 ? `${next}` : `${next} seconds left`);
-          }
-
-          if (prev <= 1) {
-            clearInterval(timerRef.current!);
-            finishSession();
-            return 0;
-          }
-          return next;
-        });
+        setTimeLeft((prev: number) => Math.max(0, prev - 1));
       }, 1000);
     }
 
@@ -372,6 +470,27 @@ export default function StagePage({ params }: StagePageProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, isPaused, timeLeft]);
+
+  // Time-based side effects — countdown warnings and ending the session —
+  // split out from the pure decrement above so they run as an ordinary
+  // effect, never inside a setState updater. sessionEndedRef guards
+  // against finishSession firing more than once (e.g. React Strict Mode's
+  // double effect invocation in dev, or isActive flipping while
+  // timeLeft is still 0).
+  useEffect(() => {
+    if (!isActive) return;
+
+    if ([30, 10, 5, 3, 2, 1].includes(timeLeft) && !announcedTimeWarnings.current.has(timeLeft)) {
+      announcedTimeWarnings.current.add(timeLeft);
+      announce(timeLeft <= 5 ? `${timeLeft}` : `${timeLeft} seconds left`);
+    }
+
+    if (timeLeft === 0 && !sessionEndedRef.current) {
+      sessionEndedRef.current = true;
+      finishSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, isActive]);
 
   // Calculate live speed (KPM for key-drill stages, WPM for word/sentence
   // stages) and accuracy. Using WPM's "correct/5/minutes" formula for a
@@ -461,12 +580,23 @@ export default function StagePage({ params }: StagePageProps) {
     const speedRatio = Math.min(finalSpeed / stage.levelUpTarget, 1);
     const fluencyScore = Math.round(finalAccuracy * 0.6 + speedRatio * 100 * 0.4);
 
-    const clearedAllWords = finalWordIndex >= totalWords - 1 && finalCharIndex >= finalWord.length;
+    const clearedAllWords =
+      finalWordIndex >= totalWords - 1 && finalCharIndex >= finalWord.length;
     const meetsThreshold =
       finalAccuracy >= stage.levelUpAccuracy && finalSpeed >= stage.levelUpTarget;
     const eligibleToLevelUp =
       clearedAllWords && meetsThreshold && currentProfile?.level === stage.stageId;
 
+    // `handled` tracks whether one of the specific outcome branches below
+    // (level-up / final-stage / save-failed) already put up its own
+    // sessionComplete UI + announcement. Everything that can fail — the DB
+    // write, the adaptive-data update, the level-up bookkeeping — now lives
+    // inside this try, and the `finally` guarantees that *some* outcome is
+    // always shown to the student. Previously, an exception anywhere in
+    // this block (e.g. a blocked IndexedDB write) skipped straight past
+    // every setSessionComplete(true) call, which is what "timer hits zero
+    // and the app just stops" actually was: not a missing feature, an
+    // unhandled error silently swallowing the completion screen.
     let handled = false;
 
     try {
@@ -628,7 +758,12 @@ export default function StagePage({ params }: StagePageProps) {
     } else {
       playSound("incorrect");
       setFeedbackType("incorrect");
-
+      // Spoken correction — the specific piece a blind learner needs to fix
+      // muscle memory, which a tone alone can't convey. The next-letter
+      // announcement (currentCharIndex effect) fires right after this.
+      // Deferred past introInFlightRef for the same reason as that
+      // effect: a mistyped first keystroke shouldn't be able to cut the
+      // word's own pronunciation off mid-word either.
       const correctionIntroWait = introInFlightRef.current;
       const correctionToken = ++speechTokenRef.current;
       (async () => {
@@ -648,6 +783,26 @@ export default function StagePage({ params }: StagePageProps) {
     currentCharIndexRef.current = nextCharIndex;
     setCurrentCharIndex(nextCharIndex);
 
+    // Advance immediately rather than after an artificial delay. The old
+    // 300ms delay meant that any keystroke a fast typist landed in that
+    // window — which is exactly what happens once someone's comfortably
+    // over ~40 keys/min — hit the guard above and was silently discarded,
+    // which is what "gets stuck when I type faster" was: input the app
+    // just never picked up made typing feel broken, not slow.
+    //
+    // NOTE: this must compare against nextCharIndex (just computed above),
+    // not the closed-over `currentCharIndex` state value. A functional
+    // setState updater used to do this increment instead (`setCurrentCharIndex(prev
+    // => ...)`), which mutated currentCharIndexRef as a side effect *inside*
+    // that updater — but React doesn't run functional updaters immediately,
+    // it defers them until reconciliation. That deferred ref write landed
+    // *after* handleWordComplete (called synchronously right below) had
+    // already reset currentCharIndexRef to 0 for the next word, silently
+    // clobbering it back to a stale value. The guard at the top of this
+    // function reads that ref, so every keystroke on the next word was
+    // then incorrectly rejected as "already completed" — permanently stuck
+    // until Enter forced a re-check. Computing and assigning the ref
+    // synchronously, right here, removes that race entirely.
     if (nextCharIndex === currentWord.length) {
       handleWordComplete();
     }
@@ -668,11 +823,29 @@ export default function StagePage({ params }: StagePageProps) {
       setInputValue("");
       playSound("select");
 
+      // Light, varied positive reinforcement every 3rd word — enough to
+      // feel encouraging without talking over every single word transition.
+      //
+      // This fires synchronously, right here, in the same tick as
+      // setCurrentWordIndex above. But the *next* word's own announcement
+      // doesn't happen here — it happens moments later, in the
+      // currentWordIndex useEffect, once React has committed this state
+      // update. That effect's speak() call is the one that actually
+      // matters and should win the speech engine every time. Calling
+      // announce(phrase) immediately, right now, used to grab the idle
+      // speech slot first (nothing else is speaking at the instant a word
+      // completes) and forced the next word's own pronunciation to queue
+      // up and wait behind "Nice!"/"Great!" instead of the other way
+      // around — the exact "affirmation delays the next word" bug.
+      // Deferring past that effect lets the next word claim the slot
+      // first; the encouragement then correctly falls in right after it,
+      // as a trailing aside, never blocking it.
       if (wordCompleteCount.current % 3 === 0) {
         const phrase = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
         setTimeout(() => announce(phrase), 50);
       }
     } else {
+      sessionEndedRef.current = true;
       finishSession();
     }
   };
@@ -702,8 +875,19 @@ export default function StagePage({ params }: StagePageProps) {
     setFeedbackType(null);
     lastCompletedWordIndexRef.current = -1;
     announcedTimeWarnings.current.clear();
+    sessionEndedRef.current = false;
+    liveQueueRef.current = Promise.resolve();
     wordCompleteCount.current = 0;
 
+    // BUG: calling focus() here synchronously used to be a silent no-op.
+    // setSessionComplete(false) above only *schedules* a re-render — at this
+    // exact point in the function the input's `disabled={sessionComplete}`
+    // attribute in the real DOM is still `true` from the previous render
+    // (sessionComplete was true, that's why the "Practice Again" button was
+    // showing). Browsers refuse to focus a disabled element, so this focus()
+    // call did nothing, and every keystroke afterward went nowhere — which
+    // is exactly "click Try Again, then typing doesn't start at all."
+    // Deferring one frame lets React commit the disabled=false render first.
     requestAnimationFrame(() => inputRef.current?.focus());
 
     const token = speechTokenRef.current;
@@ -902,7 +1086,24 @@ export default function StagePage({ params }: StagePageProps) {
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
-              aria-label={`Type the word: ${currentWord}`}
+              // A static label, deliberately never changing per-word. This
+              // input stays focused for the entire session, and its old
+              // label — `Type the word: ${currentWord}` — changed every
+              // single word. Screen readers re-announce a focused
+              // element's accessible name whenever it changes, on top of
+              // whatever the aria-live regions are already announcing.
+              // Two announcement channels firing back-to-back on every
+              // word, on a field that never loses focus, is exactly what
+              // was jamming JAWS/NVDA's speech queue — "Type the word:"
+              // would start, then go silent, because a second
+              // name-change announcement collided with it before it
+              // finished. The app's own voice never touched this
+              // attribute, which is why that path was never affected.
+              // The live-region announcements (see setLiveMessageForced
+              // above) are now the single source of per-word narration
+              // for real screen readers — this label just orients someone
+              // tabbing in, once.
+              aria-label="Typing practice. The current word or letter is announced automatically."
               disabled={sessionComplete}
             />
 

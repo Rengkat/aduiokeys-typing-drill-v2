@@ -951,7 +951,7 @@ module.exports = {
             "title": "Home Row Foundation",
             "mode": "keys",
             "metric": "kpm",
-            "targetValue": 16,
+            "targetValue": 12,
             "targetAccuracy": 95,
             "description": "First contact with the keyboard — just A S D F J K L ; . Accuracy matters far more than speed here.",
             "celebration": "You've found your home base! Every word you'll ever type starts from these keys."
@@ -962,7 +962,7 @@ module.exports = {
             "title": "Home Row Complete",
             "mode": "keys",
             "metric": "kpm",
-            "targetValue": 24,
+            "targetValue": 18,
             "targetAccuracy": 95,
             "description": "Adds G and H — the last two home row keys — and builds real fluency across the full row.",
             "celebration": "Home row mastered, start to finish. Your fingers know the way now."
@@ -973,7 +973,7 @@ module.exports = {
             "title": "Top Row Expansion",
             "mode": "keys",
             "metric": "kpm",
-            "targetValue": 28,
+            "targetValue": 22,
             "targetAccuracy": 94,
             "description": "Q W E R T Y U I O P — reaching up from home row.",
             "celebration": "You've climbed the top row! That's over half the alphabet under your fingers."
@@ -984,7 +984,7 @@ module.exports = {
             "title": "Bottom Row Expansion",
             "mode": "keys",
             "metric": "kpm",
-            "targetValue": 32,
+            "targetValue": 26,
             "targetAccuracy": 93,
             "description": "Z X C V B N M , . / — reaching down from home row. Completes the full alphabet.",
             "celebration": "The entire alphabet is yours now. That's the hardest part behind you."
@@ -995,7 +995,7 @@ module.exports = {
             "title": "Numbers & Symbols",
             "mode": "keys",
             "metric": "kpm",
-            "targetValue": 28,
+            "targetValue": 22,
             "targetAccuracy": 90,
             "description": "Number row plus common shifted symbols. A gentler accuracy bar — these reaches are genuinely harder.",
             "celebration": "Numbers and symbols down. You can type anything a keyboard has to offer."
@@ -1723,7 +1723,11 @@ module.exports = {
     "/": "Slash",
     " ": "Spacebar",
     "z": "Zed",
-    "Z": "Zed"
+    "Z": "Zed",
+    "m": "M, as in Mike",
+    "M": "M, as in Mike",
+    "n": "N, as in November",
+    "N": "N, as in November"
 };
 }),
 "[project]/engines/audio/narrator.ts [app-ssr] (ecmascript)", ((__turbopack_context__) => {
@@ -1864,10 +1868,15 @@ function StagePage({ params }) {
     const { stageId: routeParam } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["use"])(params);
     const router = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRouter"])();
     const { currentProfile, updateProfile, isHydrated } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$hooks$2f$useProfile$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useProfile"])();
-    const { speak, playSound } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$hooks$2f$useAudioEngine$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useAudio"])();
+    const { speak, playSound, screenReaderMode } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$hooks$2f$useAudioEngine$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useAudio"])();
     const { logKeystroke, sessionId, flushBuffer } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$hooks$2f$useKeystrokeLogger$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useKeystrokeLogger"])();
     const stage = (0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$stage$2f$stageConfig$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["getStageByRoute"])(routeParam);
     const speedLabel = stage.metric === "kpm" ? "KPM" : "WPM";
+    // The queue is now built from the real curriculum data (data/dictionaries)
+    // via generateLesson(), and — once the student's weak keys and due
+    // spaced-repetition items are loaded — biased toward their actual trouble
+    // spots. That fetch is async, so the queue starts empty and is populated
+    // by the effect below rather than a synchronous useRef.
     const [wordQueue, setWordQueue] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
     const [queueReady, setQueueReady] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [currentWordIndex, setCurrentWordIndex] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(0);
@@ -1893,10 +1902,36 @@ function StagePage({ params }) {
     const timerRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(null);
     const wordListRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(null);
     const audioCtxRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(null);
+    // Guards against double-advancing the SAME word (e.g. a stray duplicate
+    // event). Keyed to the word index itself rather than a wall-clock cooldown
+    // — a time-based cooldown (the old approach) blocks legitimate rapid-fire
+    // completions of *different* words, which is exactly what single-letter
+    // key-drill stages produce from a fast typist: every keystroke completes
+    // a new word, often well under 150ms apart. That mismatch was the actual
+    // cause of "every other letter needs Enter" — the second completion was
+    // silently dropped by the cooldown, leaving currentCharIndex stuck at the
+    // word's length until Enter forced a re-check past the (by-then-expired)
     // cooldown.
     const lastCompletedWordIndexRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(-1);
     const announcedTimeWarnings = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(new Set());
+    // Guards finishSession() against firing more than once when timeLeft
+    // hits 0 — see the timer side-effects useEffect below.
+    const sessionEndedRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(false);
     const wordCompleteCount = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(0);
+    // --- Stale-closure guards ------------------------------------------
+    // handleWordComplete/finishSession get scheduled from inside
+    // handleKeyDown via setTimeout, which "freezes" a reference to whichever
+    // render's handleKeyDown/handleWordComplete/finishSession created that
+    // timeout. Because React state setters are asynchronous, that frozen
+    // closure was reading currentCharIndex/currentWordIndex/keystrokes/speed
+    // as they were *before* the very keystroke that triggered the timeout —
+    // e.g. on the last letter of the last word, currentCharIndex inside that
+    // closure was still word.length - 1, never word.length. That made the
+    // stage-complete check (`currentCharIndex >= currentWord.length`) false
+    // even when the student had genuinely finished, so level-up never fired.
+    // These refs are updated synchronously at the same point the matching
+    // state setter is called, so any closure — however stale — can read the
+    // true current value via `.current`.
     const currentWordIndexRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(0);
     const currentCharIndexRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(0);
     const keystrokesRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])({
@@ -1913,16 +1948,74 @@ function StagePage({ params }) {
     // cases where the word-start announcement is already being handled
     // manually (initial mount, restart).
     const suppressNextWordAnnounceRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(true);
+    // Resolves once the current item's sentence+word intro has finished
+    // playing. Typing is never blocked while that intro plays — a student
+    // who already recognizes the word from hearing it should be free to
+    // start typing immediately — but the per-letter "announce the next
+    // letter" effect below used to fire on priority:"high", which cancels
+    // whatever's currently speaking. That meant a fast/confident typist's
+    // very first keystroke would cut the word's own pronunciation off
+    // mid-word, so it sounded like "some words just don't get said" even
+    // though every word's announcement is always started; it just wasn't
+    // always allowed to finish. Letter announcements now await this promise
+    // first, so the intro always plays in full before anything interrupts it.
     const introInFlightRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(Promise.resolve());
     const currentItem = wordQueue[currentWordIndex];
     const currentWord = currentItem?.word || "";
     const totalWords = wordQueue.length;
+    // Screen readers announce aria-live regions by watching for DOM
+    // mutations. React, however, bails out of re-rendering — and therefore
+    // never touches the DOM — when a state setter is called with a value
+    // that's already the current state (documented React behavior). That
+    // means two consecutive identical announcements go completely silent for
+    // a real screen reader: the letter "o" twice in a row in "book", "t"
+    // twice in "letter", back-to-back single-letter drills in Stage 1-5 that
+    // repeat, or a sentence word ending in the same letter the next one
+    // starts with. This app's own synthesized voice (speak(), below) isn't
+    // affected — it fires unconditionally every call — which is exactly why
+    // it looked like "the word gets said but the letter randomly doesn't":
+    // TTS always played, but the live region powering an actual screen
+    // reader silently no-opped on repeats. Clearing the region first, then
+    // setting the real text a frame later, guarantees "" -> text is always a
+    // change, so the announcement is never skipped.
     const setLiveMessageForced = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useCallback"])((text)=>{
         setLiveMessage("");
         requestAnimationFrame(()=>setLiveMessage(text));
     }, []);
+    // Every announcement in the stage (word, letter, encouragement,
+    // correction) ultimately wants to update this one live region, and in
+    // screen reader mode nothing else paces them relative to each other —
+    // our own speechSynthesis never actually speaks in that mode (see
+    // useAudioStore.speak), so the app has no way to know when JAWS/NVDA/
+    // VoiceOver has actually finished reading the last thing it announced.
+    // Without this queue, an encouragement fired right as the next letter
+    // starts (e.g. every 3rd word) would call setLiveMessageForced twice
+    // within milliseconds of each other; a real screen reader mid-utterance
+    // on the first update gets its speech cut off/dropped by the second and
+    // goes silent — exactly the "stops after the encouragement, blind
+    // student gets stuck" symptom. This serializes every live-region update
+    // behind a promise chain and, in screen reader mode only, waits out a
+    // rough estimate of how long that text would take a screen reader to
+    // read before letting the next one in — the same estimate already used
+    // to pace the app's own voice. In app-voice mode this is a no-op pass
+    // through to setLiveMessageForced with no added delay, since that path
+    // already works correctly (paced by the browser's real speechSynthesis
+    // engine instead).
+    const liveQueueRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(Promise.resolve());
+    const queueLiveMessage = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useCallback"])((text)=>{
+        liveQueueRef.current = liveQueueRef.current.then(async ()=>{
+            setLiveMessageForced(text);
+            if (screenReaderMode) {
+                const estimatedMs = Math.max(900, text.length * 90);
+                await new Promise((r)=>setTimeout(r, estimatedMs));
+            }
+        });
+    }, [
+        setLiveMessageForced,
+        screenReaderMode
+    ]);
     const announce = (text, options)=>{
-        setLiveMessageForced(text);
+        queueLiveMessage(text);
         speak(text, options);
     };
     // Redirect if an unknown stage id slipped through — done in an effect,
@@ -2013,13 +2106,13 @@ function StagePage({ params }) {
         try {
             if (item.sentenceIntro) {
                 setCurrentSentenceText(item.sentenceIntro);
-                setLiveMessageForced(item.sentenceIntro);
+                queueLiveMessage(item.sentenceIntro);
                 await (0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$speechSequencer$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakAndWait"])(item.sentenceIntro, {
                     priority: "high"
                 });
                 if (speechTokenRef.current !== token) return;
             }
-            setLiveMessageForced(item.word);
+            queueLiveMessage((0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$narrator$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakableWord"])(item.word));
             await (0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$speechSequencer$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakAndWait"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$narrator$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakableWord"])(item.word), {
                 priority: "high"
             });
@@ -2032,14 +2125,15 @@ function StagePage({ params }) {
         if (item.word.length > 1) {
             const firstLetter = item.word[0];
             if (firstLetter) {
-                setLiveMessageForced(firstLetter);
+                queueLiveMessage((0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$narrator$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakableChar"])(firstLetter));
                 await (0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$speechSequencer$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakAndWait"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$narrator$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakableChar"])(firstLetter), {
                     priority: "high"
                 });
             }
         }
     }, [
-        setLiveMessageForced
+        setLiveMessageForced,
+        queueLiveMessage
     ]);
     // Fetch the student's weak keys + due spaced-repetition items, build the
     // real lesson queue from them, then kick off the mount announcement chain.
@@ -2056,7 +2150,7 @@ function StagePage({ params }) {
                     (0, __TURBOPACK__imported__module__$5b$project$5d2f$db$2f$metrics$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["getDueSpacedRepetitionItems"])(currentProfile.username)
                 ]);
             } catch (error) {
-                /* eslint-disable */ console.error(...oo_tx(`388509121_270_8_270_93_11`, "Failed to load adaptive data, using an unpersonalized lesson:", error));
+                console.error("Failed to load adaptive data, using an unpersonalized lesson:", error);
             }
             if (cancelled) return;
             const queue = (0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$stage$2f$stageConfig$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["buildWordQueue"])(stage, {
@@ -2065,6 +2159,14 @@ function StagePage({ params }) {
             });
             setWordQueue(queue);
             setQueueReady(true);
+            // inputRef.current is still null here — the <input> hasn't been
+            // created yet, it only mounts on the *next* render once queueReady
+            // flips to true. A same-tick focus() call was always a silent no-op;
+            // real initial focus was riding entirely on the native `autoFocus`
+            // attribute firing the instant the element mounts, giving JAWS zero
+            // time to process the new DOM before focus moved into it. Wait for
+            // the ref to actually attach, then focus one frame later so the
+            // browser has painted (and the AT has a beat to catch up) first.
             const focusWhenMounted = (attemptsLeft = 20)=>{
                 if (inputRef.current) {
                     requestAnimationFrame(()=>inputRef.current?.focus());
@@ -2126,7 +2228,16 @@ function StagePage({ params }) {
             // If several keystrokes landed while we were waiting, only the most
             // recent one should still announce; older ones are stale by now.
             if (speechTokenRef.current !== token) return;
-            setLiveMessageForced(letter);
+            // Live region text must match what speakAndWait actually says below —
+            // both channels need to go through speakableChar so a real screen
+            // reader (which reads this live region, not our own TTS) says "Zed"
+            // for z, "M, as in Mike" for m, etc., the same as the app's own
+            // voice does. Passing the raw letter here used to leave JAWS/NVDA to
+            // guess its own pronunciation, which is where "z" -> "zee" and the
+            // easily-confused "m"/"n" letter names came from — that's the screen
+            // reader's own TTS engine, not this app's, so this JSON mapping is
+            // the only lever we have over it.
+            queueLiveMessage((0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$narrator$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakableChar"])(letter));
             await (0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$speechSequencer$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakAndWait"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$engines$2f$audio$2f$narrator$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["speakableChar"])(letter), {
                 priority: "high"
             });
@@ -2135,30 +2246,21 @@ function StagePage({ params }) {
     }, [
         currentCharIndex
     ]);
-    // Timer logic
+    // Timer logic — this effect's only job is decrementing the number. Kept
+    // deliberately pure: the setTimeLeft updater below used to also call
+    // announce() (for the 30/10/5s warnings) and finishSession() directly,
+    // both of which call the Zustand audio store's own setState. Calling
+    // that from inside a React setState updater function is what produced
+    // "Cannot update a component (StagePage) while rendering a different
+    // component (StagePage)" once the timer actually hit zero — React
+    // invokes updater functions as part of its own render/commit work, and
+    // an external store's setState firing mid-way through that collides
+    // with it. All side effects now live in the effect below instead, which
+    // runs as a normal, safe effect after commit.
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         if (isActive && !isPaused && timeLeft > 0) {
             timerRef.current = setInterval(()=>{
-                setTimeLeft((prev)=>{
-                    const next = prev - 1;
-                    if ([
-                        30,
-                        10,
-                        5,
-                        3,
-                        2,
-                        1
-                    ].includes(next) && !announcedTimeWarnings.current.has(next)) {
-                        announcedTimeWarnings.current.add(next);
-                        announce(next <= 5 ? `${next}` : `${next} seconds left`);
-                    }
-                    if (prev <= 1) {
-                        clearInterval(timerRef.current);
-                        finishSession();
-                        return 0;
-                    }
-                    return next;
-                });
+                setTimeLeft((prev)=>Math.max(0, prev - 1));
             }, 1000);
         }
         return ()=>{
@@ -2169,6 +2271,34 @@ function StagePage({ params }) {
         isActive,
         isPaused,
         timeLeft
+    ]);
+    // Time-based side effects — countdown warnings and ending the session —
+    // split out from the pure decrement above so they run as an ordinary
+    // effect, never inside a setState updater. sessionEndedRef guards
+    // against finishSession firing more than once (e.g. React Strict Mode's
+    // double effect invocation in dev, or isActive flipping while
+    // timeLeft is still 0).
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
+        if (!isActive) return;
+        if ([
+            30,
+            10,
+            5,
+            3,
+            2,
+            1
+        ].includes(timeLeft) && !announcedTimeWarnings.current.has(timeLeft)) {
+            announcedTimeWarnings.current.add(timeLeft);
+            announce(timeLeft <= 5 ? `${timeLeft}` : `${timeLeft} seconds left`);
+        }
+        if (timeLeft === 0 && !sessionEndedRef.current) {
+            sessionEndedRef.current = true;
+            finishSession();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        timeLeft,
+        isActive
     ]);
     // Calculate live speed (KPM for key-drill stages, WPM for word/sentence
     // stages) and accuracy. Using WPM's "correct/5/minutes" formula for a
@@ -2234,7 +2364,7 @@ function StagePage({ params }) {
                 await (0, __TURBOPACK__imported__module__$5b$project$5d2f$db$2f$metrics$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["upsertSpacedRepetitionItem"])(updated);
             }
         } catch (error) {
-            /* eslint-disable */ console.error(...oo_tx(`388509121_434_6_434_61_11`, "Failed to update adaptive data:", error));
+            console.error("Failed to update adaptive data:", error);
         }
     };
     const finishSession = async ()=>{
@@ -2260,6 +2390,16 @@ function StagePage({ params }) {
         const clearedAllWords = finalWordIndex >= totalWords - 1 && finalCharIndex >= finalWord.length;
         const meetsThreshold = finalAccuracy >= stage.levelUpAccuracy && finalSpeed >= stage.levelUpTarget;
         const eligibleToLevelUp = clearedAllWords && meetsThreshold && currentProfile?.level === stage.stageId;
+        // `handled` tracks whether one of the specific outcome branches below
+        // (level-up / final-stage / save-failed) already put up its own
+        // sessionComplete UI + announcement. Everything that can fail — the DB
+        // write, the adaptive-data update, the level-up bookkeeping — now lives
+        // inside this try, and the `finally` guarantees that *some* outcome is
+        // always shown to the student. Previously, an exception anywhere in
+        // this block (e.g. a blocked IndexedDB write) skipped straight past
+        // every setSessionComplete(true) call, which is what "timer hits zero
+        // and the app just stops" actually was: not a missing feature, an
+        // unhandled error silently swallowing the completion screen.
         let handled = false;
         try {
             if (currentProfile) {
@@ -2318,7 +2458,7 @@ function StagePage({ params }) {
                 }
             }
         } catch (error) {
-            /* eslint-disable */ console.error(...oo_tx(`388509121_528_6_528_53_11`, "Failed to save metrics:", error));
+            console.error("Failed to save metrics:", error);
         } finally{
             if (!handled) {
                 // Covers both "didn't hit the target this time" (student needs to
@@ -2405,6 +2545,12 @@ function StagePage({ params }) {
         } else {
             playSound("incorrect");
             setFeedbackType("incorrect");
+            // Spoken correction — the specific piece a blind learner needs to fix
+            // muscle memory, which a tone alone can't convey. The next-letter
+            // announcement (currentCharIndex effect) fires right after this.
+            // Deferred past introInFlightRef for the same reason as that
+            // effect: a mistyped first keystroke shouldn't be able to cut the
+            // word's own pronunciation off mid-word either.
             const correctionIntroWait = introInFlightRef.current;
             const correctionToken = ++speechTokenRef.current;
             (async ()=>{
@@ -2421,6 +2567,26 @@ function StagePage({ params }) {
         const nextCharIndex = currentCharIndexRef.current + 1;
         currentCharIndexRef.current = nextCharIndex;
         setCurrentCharIndex(nextCharIndex);
+        // Advance immediately rather than after an artificial delay. The old
+        // 300ms delay meant that any keystroke a fast typist landed in that
+        // window — which is exactly what happens once someone's comfortably
+        // over ~40 keys/min — hit the guard above and was silently discarded,
+        // which is what "gets stuck when I type faster" was: input the app
+        // just never picked up made typing feel broken, not slow.
+        //
+        // NOTE: this must compare against nextCharIndex (just computed above),
+        // not the closed-over `currentCharIndex` state value. A functional
+        // setState updater used to do this increment instead (`setCurrentCharIndex(prev
+        // => ...)`), which mutated currentCharIndexRef as a side effect *inside*
+        // that updater — but React doesn't run functional updaters immediately,
+        // it defers them until reconciliation. That deferred ref write landed
+        // *after* handleWordComplete (called synchronously right below) had
+        // already reset currentCharIndexRef to 0 for the next word, silently
+        // clobbering it back to a stale value. The guard at the top of this
+        // function reads that ref, so every keystroke on the next word was
+        // then incorrectly rejected as "already completed" — permanently stuck
+        // until Enter forced a re-check. Computing and assigning the ref
+        // synchronously, right here, removes that race entirely.
         if (nextCharIndex === currentWord.length) {
             handleWordComplete();
         }
@@ -2438,11 +2604,29 @@ function StagePage({ params }) {
             currentCharIndexRef.current = 0;
             setInputValue("");
             playSound("select");
+            // Light, varied positive reinforcement every 3rd word — enough to
+            // feel encouraging without talking over every single word transition.
+            //
+            // This fires synchronously, right here, in the same tick as
+            // setCurrentWordIndex above. But the *next* word's own announcement
+            // doesn't happen here — it happens moments later, in the
+            // currentWordIndex useEffect, once React has committed this state
+            // update. That effect's speak() call is the one that actually
+            // matters and should win the speech engine every time. Calling
+            // announce(phrase) immediately, right now, used to grab the idle
+            // speech slot first (nothing else is speaking at the instant a word
+            // completes) and forced the next word's own pronunciation to queue
+            // up and wait behind "Nice!"/"Great!" instead of the other way
+            // around — the exact "affirmation delays the next word" bug.
+            // Deferring past that effect lets the next word claim the slot
+            // first; the encouragement then correctly falls in right after it,
+            // as a trailing aside, never blocking it.
             if (wordCompleteCount.current % 3 === 0) {
                 const phrase = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
                 setTimeout(()=>announce(phrase), 50);
             }
         } else {
+            sessionEndedRef.current = true;
             finishSession();
         }
     };
@@ -2476,7 +2660,18 @@ function StagePage({ params }) {
         setFeedbackType(null);
         lastCompletedWordIndexRef.current = -1;
         announcedTimeWarnings.current.clear();
+        sessionEndedRef.current = false;
+        liveQueueRef.current = Promise.resolve();
         wordCompleteCount.current = 0;
+        // BUG: calling focus() here synchronously used to be a silent no-op.
+        // setSessionComplete(false) above only *schedules* a re-render — at this
+        // exact point in the function the input's `disabled={sessionComplete}`
+        // attribute in the real DOM is still `true` from the previous render
+        // (sessionComplete was true, that's why the "Practice Again" button was
+        // showing). Browsers refuse to focus a disabled element, so this focus()
+        // call did nothing, and every keystroke afterward went nowhere — which
+        // is exactly "click Try Again, then typing doesn't start at all."
+        // Deferring one frame lets React commit the disabled=false render first.
         requestAnimationFrame(()=>inputRef.current?.focus());
         const token = speechTokenRef.current;
         (async ()=>{
@@ -2518,7 +2713,7 @@ function StagePage({ params }) {
                     children: "Preparing your lesson."
                 }, void 0, false, {
                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                    lineNumber: 748,
+                    lineNumber: 932,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2526,13 +2721,13 @@ function StagePage({ params }) {
                     children: "Preparing your lesson..."
                 }, void 0, false, {
                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                    lineNumber: 751,
+                    lineNumber: 935,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/app/stage/[stageId]/page.tsx",
-            lineNumber: 743,
+            lineNumber: 927,
             columnNumber: 7
         }, this);
     }
@@ -2548,7 +2743,7 @@ function StagePage({ params }) {
                 children: liveMessage
             }, void 0, false, {
                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                lineNumber: 762,
+                lineNumber: 946,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2565,14 +2760,14 @@ function StagePage({ params }) {
                                         className: "w-4 h-4"
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 772,
+                                        lineNumber: 956,
                                         columnNumber: 13
                                     }, this),
                                     "Back to Home"
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 769,
+                                lineNumber: 953,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2586,7 +2781,7 @@ function StagePage({ params }) {
                                         children: isPaused ? "Resume" : "Pause"
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 777,
+                                        lineNumber: 961,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -2597,26 +2792,26 @@ function StagePage({ params }) {
                                                 className: "w-4 h-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 787,
+                                                lineNumber: 971,
                                                 columnNumber: 15
                                             }, this),
                                             "Restart"
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 784,
+                                        lineNumber: 968,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 776,
+                                lineNumber: 960,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                        lineNumber: 768,
+                        lineNumber: 952,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2630,12 +2825,12 @@ function StagePage({ params }) {
                                         className: "w-8 h-8 text-white"
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 797,
+                                        lineNumber: 981,
                                         columnNumber: 30
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 796,
+                                    lineNumber: 980,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2646,7 +2841,7 @@ function StagePage({ params }) {
                                             children: stage.title
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 800,
+                                            lineNumber: 984,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2654,13 +2849,13 @@ function StagePage({ params }) {
                                             children: stage.description
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 801,
+                                            lineNumber: 985,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 799,
+                                    lineNumber: 983,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2671,7 +2866,7 @@ function StagePage({ params }) {
                                             children: "Player"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 804,
+                                            lineNumber: 988,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2679,24 +2874,24 @@ function StagePage({ params }) {
                                             children: currentProfile.username
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 805,
+                                            lineNumber: 989,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 803,
+                                    lineNumber: 987,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                            lineNumber: 795,
+                            lineNumber: 979,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                        lineNumber: 794,
+                        lineNumber: 978,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2712,7 +2907,7 @@ function StagePage({ params }) {
                                                 className: "w-4 h-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 814,
+                                                lineNumber: 998,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2720,13 +2915,13 @@ function StagePage({ params }) {
                                                 children: speedLabel
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 815,
+                                                lineNumber: 999,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 813,
+                                        lineNumber: 997,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2734,13 +2929,13 @@ function StagePage({ params }) {
                                         children: speed
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 817,
+                                        lineNumber: 1001,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 812,
+                                lineNumber: 996,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2753,7 +2948,7 @@ function StagePage({ params }) {
                                                 className: "w-4 h-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 821,
+                                                lineNumber: 1005,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2761,13 +2956,13 @@ function StagePage({ params }) {
                                                 children: "Accuracy"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 822,
+                                                lineNumber: 1006,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 820,
+                                        lineNumber: 1004,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2778,13 +2973,13 @@ function StagePage({ params }) {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 824,
+                                        lineNumber: 1008,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 819,
+                                lineNumber: 1003,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2797,7 +2992,7 @@ function StagePage({ params }) {
                                                 className: "w-4 h-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 828,
+                                                lineNumber: 1012,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2805,13 +3000,13 @@ function StagePage({ params }) {
                                                 children: "Progress"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 829,
+                                                lineNumber: 1013,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 827,
+                                        lineNumber: 1011,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2822,13 +3017,13 @@ function StagePage({ params }) {
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 831,
+                                        lineNumber: 1015,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 826,
+                                lineNumber: 1010,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2841,7 +3036,7 @@ function StagePage({ params }) {
                                                 className: "w-4 h-4"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 835,
+                                                lineNumber: 1019,
                                                 columnNumber: 15
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2849,13 +3044,13 @@ function StagePage({ params }) {
                                                 children: "Time Left"
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 836,
+                                                lineNumber: 1020,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 834,
+                                        lineNumber: 1018,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2863,19 +3058,19 @@ function StagePage({ params }) {
                                         children: getTimeDisplay()
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 838,
+                                        lineNumber: 1022,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 833,
+                                lineNumber: 1017,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                        lineNumber: 811,
+                        lineNumber: 995,
                         columnNumber: 9
                     }, this),
                     stage.mode === "sentences" && currentSentenceText && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2886,7 +3081,7 @@ function StagePage({ params }) {
                                 children: "Current sentence"
                             }, void 0, false, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 845,
+                                lineNumber: 1029,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2894,13 +3089,13 @@ function StagePage({ params }) {
                                 children: currentSentenceText
                             }, void 0, false, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 846,
+                                lineNumber: 1030,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                        lineNumber: 844,
+                        lineNumber: 1028,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2924,13 +3119,13 @@ function StagePage({ params }) {
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 855,
+                                                lineNumber: 1039,
                                                 columnNumber: 15
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 853,
+                                        lineNumber: 1037,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2944,22 +3139,22 @@ function StagePage({ params }) {
                                                         children: char
                                                     }, index, false, {
                                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                        lineNumber: 864,
+                                                        lineNumber: 1048,
                                                         columnNumber: 21
                                                     }, this))
                                             }, void 0, false, {
                                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                lineNumber: 862,
+                                                lineNumber: 1046,
                                                 columnNumber: 17
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 861,
+                                            lineNumber: 1045,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 860,
+                                        lineNumber: 1044,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -2987,11 +3182,28 @@ function StagePage({ params }) {
                                         autoCorrect: "off",
                                         autoCapitalize: "off",
                                         spellCheck: false,
-                                        "aria-label": `Type the word: ${currentWord}`,
+                                        // A static label, deliberately never changing per-word. This
+                                        // input stays focused for the entire session, and its old
+                                        // label — `Type the word: ${currentWord}` — changed every
+                                        // single word. Screen readers re-announce a focused
+                                        // element's accessible name whenever it changes, on top of
+                                        // whatever the aria-live regions are already announcing.
+                                        // Two announcement channels firing back-to-back on every
+                                        // word, on a field that never loses focus, is exactly what
+                                        // was jamming JAWS/NVDA's speech queue — "Type the word:"
+                                        // would start, then go silent, because a second
+                                        // name-change announcement collided with it before it
+                                        // finished. The app's own voice never touched this
+                                        // attribute, which is why that path was never affected.
+                                        // The live-region announcements (see setLiveMessageForced
+                                        // above) are now the single source of per-word narration
+                                        // for real screen readers — this label just orients someone
+                                        // tabbing in, once.
+                                        "aria-label": "Typing practice. The current word or letter is announced automatically.",
                                         disabled: sessionComplete
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 880,
+                                        lineNumber: 1064,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3003,12 +3215,12 @@ function StagePage({ params }) {
                                             }
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 910,
+                                            lineNumber: 1111,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 909,
+                                        lineNumber: 1110,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3021,23 +3233,23 @@ function StagePage({ params }) {
                                                     children: item.word
                                                 }, index, false, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 921,
+                                                    lineNumber: 1122,
                                                     columnNumber: 19
                                                 }, this))
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 919,
+                                            lineNumber: 1120,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                        lineNumber: 916,
+                                        lineNumber: 1117,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 852,
+                                lineNumber: 1036,
                                 columnNumber: 11
                             }, this),
                             showFeedback && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3047,24 +3259,24 @@ function StagePage({ params }) {
                                     className: "w-8 h-8 mx-auto animate-bounce"
                                 }, void 0, false, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 944,
+                                    lineNumber: 1145,
                                     columnNumber: 17
                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$circle$2d$x$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__XCircle$3e$__["XCircle"], {
                                     className: "w-8 h-8 mx-auto animate-bounce"
                                 }, void 0, false, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 946,
+                                    lineNumber: 1147,
                                     columnNumber: 17
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                lineNumber: 938,
+                                lineNumber: 1139,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                        lineNumber: 851,
+                        lineNumber: 1035,
                         columnNumber: 9
                     }, this),
                     sessionComplete && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3076,7 +3288,7 @@ function StagePage({ params }) {
                                     className: "w-16 h-16 text-yellow-400 mx-auto mb-4"
                                 }, void 0, false, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 956,
+                                    lineNumber: 1157,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
@@ -3084,7 +3296,7 @@ function StagePage({ params }) {
                                     children: levelUpInfo ? "Stage Complete!" : "Session Complete!"
                                 }, void 0, false, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 957,
+                                    lineNumber: 1158,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3092,7 +3304,7 @@ function StagePage({ params }) {
                                     children: levelUpInfo ? `You're moving on to ${levelUpInfo.title}!` : `Great job, ${currentProfile.username}!`
                                 }, void 0, false, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 960,
+                                    lineNumber: 1161,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3106,7 +3318,7 @@ function StagePage({ params }) {
                                                     children: speed
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 967,
+                                                    lineNumber: 1168,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3114,13 +3326,13 @@ function StagePage({ params }) {
                                                     children: speedLabel
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 968,
+                                                    lineNumber: 1169,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 966,
+                                            lineNumber: 1167,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3134,7 +3346,7 @@ function StagePage({ params }) {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 971,
+                                                    lineNumber: 1172,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3142,13 +3354,13 @@ function StagePage({ params }) {
                                                     children: "Accuracy"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 972,
+                                                    lineNumber: 1173,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 970,
+                                            lineNumber: 1171,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3162,7 +3374,7 @@ function StagePage({ params }) {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 975,
+                                                    lineNumber: 1176,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3170,13 +3382,13 @@ function StagePage({ params }) {
                                                     children: "Fluency Score"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 981,
+                                                    lineNumber: 1182,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 974,
+                                            lineNumber: 1175,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3187,7 +3399,7 @@ function StagePage({ params }) {
                                                     children: keystrokes.total
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 984,
+                                                    lineNumber: 1185,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3195,19 +3407,19 @@ function StagePage({ params }) {
                                                     children: "Keystrokes"
                                                 }, void 0, false, {
                                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                                    lineNumber: 985,
+                                                    lineNumber: 1186,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 983,
+                                            lineNumber: 1184,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 965,
+                                    lineNumber: 1166,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3222,7 +3434,7 @@ function StagePage({ params }) {
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 990,
+                                            lineNumber: 1191,
                                             columnNumber: 19
                                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                             onClick: handleRestart,
@@ -3230,7 +3442,7 @@ function StagePage({ params }) {
                                             children: "Practice Again"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 996,
+                                            lineNumber: 1197,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -3239,24 +3451,24 @@ function StagePage({ params }) {
                                             children: "Go Home"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1000,
+                                            lineNumber: 1201,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 988,
+                                    lineNumber: 1189,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                            lineNumber: 955,
+                            lineNumber: 1156,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                        lineNumber: 954,
+                        lineNumber: 1155,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3271,7 +3483,7 @@ function StagePage({ params }) {
                                             children: "Space/Enter"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1012,
+                                            lineNumber: 1213,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3279,13 +3491,13 @@ function StagePage({ params }) {
                                             children: "Next word"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1015,
+                                            lineNumber: 1216,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 1011,
+                                    lineNumber: 1212,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3295,7 +3507,7 @@ function StagePage({ params }) {
                                             children: "Backspace"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1018,
+                                            lineNumber: 1219,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3303,13 +3515,13 @@ function StagePage({ params }) {
                                             children: "Delete character"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1021,
+                                            lineNumber: 1222,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 1017,
+                                    lineNumber: 1218,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3319,7 +3531,7 @@ function StagePage({ params }) {
                                             children: "Escape"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1024,
+                                            lineNumber: 1225,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3327,13 +3539,13 @@ function StagePage({ params }) {
                                             children: "Pause/Resume"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1027,
+                                            lineNumber: 1228,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 1023,
+                                    lineNumber: 1224,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3343,7 +3555,7 @@ function StagePage({ params }) {
                                             children: "F2"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1030,
+                                            lineNumber: 1231,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3351,79 +3563,39 @@ function StagePage({ params }) {
                                             children: "Repeat word"
                                         }, void 0, false, {
                                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                            lineNumber: 1033,
+                                            lineNumber: 1234,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/app/stage/[stageId]/page.tsx",
-                                    lineNumber: 1029,
+                                    lineNumber: 1230,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/app/stage/[stageId]/page.tsx",
-                            lineNumber: 1010,
+                            lineNumber: 1211,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/app/stage/[stageId]/page.tsx",
-                        lineNumber: 1009,
+                        lineNumber: 1210,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/app/stage/[stageId]/page.tsx",
-                lineNumber: 766,
+                lineNumber: 950,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/app/stage/[stageId]/page.tsx",
-        lineNumber: 757,
+        lineNumber: 941,
         columnNumber: 5
     }, this);
 }
-function oo_cm() {
-    try {
-        return (0, eval)("globalThis._console_ninja") || (0, eval)("/* https://github.com/wallabyjs/console-ninja#how-does-it-work */'use strict';var _0x3dfa8d=_0x50c4;(function(_0x18bd55,_0x172dbc){var _0x362073=_0x50c4,_0x35fb66=_0x18bd55();while(!![]){try{var _0x2799e1=parseInt(_0x362073(0x187))/0x1*(-parseInt(_0x362073(0xac))/0x2)+-parseInt(_0x362073(0x178))/0x3*(-parseInt(_0x362073(0xb5))/0x4)+-parseInt(_0x362073(0x113))/0x5+-parseInt(_0x362073(0x190))/0x6*(parseInt(_0x362073(0x1a0))/0x7)+parseInt(_0x362073(0x132))/0x8+parseInt(_0x362073(0x14b))/0x9+-parseInt(_0x362073(0x12d))/0xa*(-parseInt(_0x362073(0xc3))/0xb);if(_0x2799e1===_0x172dbc)break;else _0x35fb66['push'](_0x35fb66['shift']());}catch(_0x44267f){_0x35fb66['push'](_0x35fb66['shift']());}}}(_0x1e22,0x8120b));function z(_0x3f9277,_0x50f934,_0x2a77df,_0x454084,_0x47708e,_0x2a9fa2){var _0x2bd9e0=_0x50c4,_0x3a55e3,_0x4c832b,_0x14d773,_0x643c1b;this[_0x2bd9e0(0x197)]=_0x3f9277,this[_0x2bd9e0(0xb0)]=_0x50f934,this[_0x2bd9e0(0xc4)]=_0x2a77df,this[_0x2bd9e0(0xca)]=_0x454084,this[_0x2bd9e0(0x168)]=_0x47708e,this[_0x2bd9e0(0xf5)]=_0x2a9fa2,this['_allowedToSend']=!0x0,this[_0x2bd9e0(0xb4)]=!0x0,this['_connected']=!0x1,this[_0x2bd9e0(0x18c)]=!0x1,this[_0x2bd9e0(0x17d)]=((_0x4c832b=(_0x3a55e3=_0x3f9277[_0x2bd9e0(0x11e)])==null?void 0x0:_0x3a55e3[_0x2bd9e0(0x154)])==null?void 0x0:_0x4c832b[_0x2bd9e0(0x145)])==='edge',this['_inBrowser']=!((_0x643c1b=(_0x14d773=this[_0x2bd9e0(0x197)][_0x2bd9e0(0x11e)])==null?void 0x0:_0x14d773[_0x2bd9e0(0xf8)])!=null&&_0x643c1b[_0x2bd9e0(0x11a)])&&!this[_0x2bd9e0(0x17d)],this[_0x2bd9e0(0x138)]=null,this['_connectAttemptCount']=0x0,this['_maxConnectAttemptCount']=0x14,this[_0x2bd9e0(0xe4)]=_0x2bd9e0(0x16c),this[_0x2bd9e0(0x184)]=(this[_0x2bd9e0(0x14f)]?_0x2bd9e0(0x102):'Console\\x20Ninja\\x20failed\\x20to\\x20send\\x20logs,\\x20restarting\\x20the\\x20process\\x20may\\x20help;\\x20also\\x20see\\x20')+this['_webSocketErrorDocsLink'];}z[_0x3dfa8d(0x19c)][_0x3dfa8d(0x101)]=async function(){var _0x563dc2=_0x3dfa8d,_0x2fd631,_0x5198dc;if(this[_0x563dc2(0x138)])return this['_WebSocketClass'];let _0x6965f9;if(this['_inBrowser']||this['_inNextEdge'])_0x6965f9=this['global'][_0x563dc2(0xef)];else{if((_0x2fd631=this[_0x563dc2(0x197)][_0x563dc2(0x11e)])!=null&&_0x2fd631[_0x563dc2(0x164)])_0x6965f9=(_0x5198dc=this['global'][_0x563dc2(0x11e)])==null?void 0x0:_0x5198dc[_0x563dc2(0x164)];else try{_0x6965f9=(await new Function(_0x563dc2(0x16d),_0x563dc2(0x15e),_0x563dc2(0xca),_0x563dc2(0x17b))(await(0x0,eval)('import(\\x27path\\x27)'),await(0x0,eval)(_0x563dc2(0xc8)),this[_0x563dc2(0xca)]))[_0x563dc2(0x133)];}catch{try{_0x6965f9=require(require('path')[_0x563dc2(0x17a)](this[_0x563dc2(0xca)],'ws'));}catch{throw new Error(_0x563dc2(0x125));}}}return this['_WebSocketClass']=_0x6965f9,_0x6965f9;},z[_0x3dfa8d(0x19c)][_0x3dfa8d(0x10f)]=function(){var _0x202e03=_0x3dfa8d;this['_connecting']||this[_0x202e03(0x180)]||this[_0x202e03(0x13e)]>=this[_0x202e03(0xf9)]||(this['_allowedToConnectOnSend']=!0x1,this[_0x202e03(0x18c)]=!0x0,this[_0x202e03(0x13e)]++,this['_ws']=new Promise((_0x22224f,_0x5313e2)=>{var _0x5ae35e=_0x202e03;this[_0x5ae35e(0x101)]()[_0x5ae35e(0x155)](_0x109215=>{var _0x3bb8b1=_0x5ae35e;let _0x3e54a3=new _0x109215('ws://'+(!this[_0x3bb8b1(0x14f)]&&this['dockerizedApp']?_0x3bb8b1(0x119):this[_0x3bb8b1(0xb0)])+':'+this[_0x3bb8b1(0xc4)]);_0x3e54a3[_0x3bb8b1(0xbb)]=()=>{var _0x456b77=_0x3bb8b1;this[_0x456b77(0xcc)]=!0x1,this['_disposeWebsocket'](_0x3e54a3),this[_0x456b77(0x176)](),_0x5313e2(new Error(_0x456b77(0x196)));},_0x3e54a3[_0x3bb8b1(0x1a8)]=()=>{var _0x4529da=_0x3bb8b1;this['_inBrowser']||_0x3e54a3[_0x4529da(0x1af)]&&_0x3e54a3[_0x4529da(0x1af)]['unref']&&_0x3e54a3[_0x4529da(0x1af)][_0x4529da(0xbf)](),_0x22224f(_0x3e54a3);},_0x3e54a3['onclose']=()=>{var _0x1639a1=_0x3bb8b1;this[_0x1639a1(0xb4)]=!0x0,this[_0x1639a1(0xe3)](_0x3e54a3),this[_0x1639a1(0x176)]();},_0x3e54a3['onmessage']=_0x196667=>{var _0x104a9f=_0x3bb8b1;try{if(!(_0x196667!=null&&_0x196667[_0x104a9f(0x171)])||!this[_0x104a9f(0xf5)])return;let _0x227ef2=JSON[_0x104a9f(0xf1)](_0x196667[_0x104a9f(0x171)]);this[_0x104a9f(0xf5)](_0x227ef2[_0x104a9f(0x16e)],_0x227ef2[_0x104a9f(0x124)],this[_0x104a9f(0x197)],this[_0x104a9f(0x14f)]);}catch{}};})[_0x5ae35e(0x155)](_0x2d02fa=>(this[_0x5ae35e(0x180)]=!0x0,this['_connecting']=!0x1,this[_0x5ae35e(0xb4)]=!0x1,this[_0x5ae35e(0xcc)]=!0x0,this['_connectAttemptCount']=0x0,_0x2d02fa))[_0x5ae35e(0x16b)](_0x43cd72=>(this[_0x5ae35e(0x180)]=!0x1,this[_0x5ae35e(0x18c)]=!0x1,console['warn'](_0x5ae35e(0xb9)+this[_0x5ae35e(0xe4)]),_0x5313e2(new Error(_0x5ae35e(0x183)+(_0x43cd72&&_0x43cd72[_0x5ae35e(0x163)])))));}));},z[_0x3dfa8d(0x19c)][_0x3dfa8d(0xe3)]=function(_0x152ca7){var _0x280766=_0x3dfa8d;this[_0x280766(0x180)]=!0x1,this['_connecting']=!0x1;try{_0x152ca7['onclose']=null,_0x152ca7[_0x280766(0xbb)]=null,_0x152ca7[_0x280766(0x1a8)]=null;}catch{}try{_0x152ca7[_0x280766(0x18a)]<0x2&&_0x152ca7[_0x280766(0x126)]();}catch{}},z[_0x3dfa8d(0x19c)]['_attemptToReconnectShortly']=function(){var _0x406761=_0x3dfa8d;clearTimeout(this[_0x406761(0xd1)]),!(this[_0x406761(0x13e)]>=this[_0x406761(0xf9)])&&(this[_0x406761(0xd1)]=setTimeout(()=>{var _0x3e09b6=_0x406761,_0x4b89d3;this[_0x3e09b6(0x180)]||this[_0x3e09b6(0x18c)]||(this[_0x3e09b6(0x10f)](),(_0x4b89d3=this[_0x3e09b6(0x141)])==null||_0x4b89d3[_0x3e09b6(0x16b)](()=>this[_0x3e09b6(0x176)]()));},0x1f4),this[_0x406761(0xd1)][_0x406761(0xbf)]&&this[_0x406761(0xd1)][_0x406761(0xbf)]());},z[_0x3dfa8d(0x19c)]['send']=async function(_0x2686fa){var _0x51dd54=_0x3dfa8d;try{if(!this['_allowedToSend'])return;this[_0x51dd54(0xb4)]&&this[_0x51dd54(0x10f)](),(await this[_0x51dd54(0x141)])['send'](JSON[_0x51dd54(0x139)](_0x2686fa));}catch(_0xf106bb){this[_0x51dd54(0xed)]?console['warn'](this[_0x51dd54(0x184)]+':\\x20'+(_0xf106bb&&_0xf106bb['message'])):(this[_0x51dd54(0xed)]=!0x0,console['warn'](this[_0x51dd54(0x184)]+':\\x20'+(_0xf106bb&&_0xf106bb['message']),_0x2686fa)),this['_allowedToSend']=!0x1,this[_0x51dd54(0x176)]();}};function H(_0x356574,_0xc62dca,_0x20b3a1,_0x13e85e,_0x59b369,_0x4f2905,_0x3730dc,_0x49148c=ne){var _0x455914=_0x3dfa8d;let _0x304c17=_0x20b3a1[_0x455914(0x152)](',')[_0x455914(0x1b2)](_0x3e9af9=>{var _0x15e968=_0x455914,_0x6d2414,_0x329e93,_0x40b7e1,_0x5ea272,_0x2cca2c,_0x4b943c,_0x57dfa7,_0x35201b;try{if(!_0x356574[_0x15e968(0x172)]){let _0x155aea=((_0x329e93=(_0x6d2414=_0x356574[_0x15e968(0x11e)])==null?void 0x0:_0x6d2414[_0x15e968(0xf8)])==null?void 0x0:_0x329e93[_0x15e968(0x11a)])||((_0x5ea272=(_0x40b7e1=_0x356574[_0x15e968(0x11e)])==null?void 0x0:_0x40b7e1['env'])==null?void 0x0:_0x5ea272['NEXT_RUNTIME'])===_0x15e968(0xcb);(_0x59b369===_0x15e968(0xcd)||_0x59b369===_0x15e968(0xf2)||_0x59b369===_0x15e968(0x14a)||_0x59b369==='angular')&&(_0x59b369+=_0x155aea?_0x15e968(0x112):_0x15e968(0x1b3));let _0xa0964e='';_0x59b369===_0x15e968(0xa8)&&(_0xa0964e=(((_0x57dfa7=(_0x4b943c=(_0x2cca2c=_0x356574[_0x15e968(0x158)])==null?void 0x0:_0x2cca2c[_0x15e968(0xbd)])==null?void 0x0:_0x4b943c['ExpoDevice'])==null?void 0x0:_0x57dfa7['osName'])||_0x15e968(0xc2))['toLowerCase'](),_0xa0964e&&(_0x59b369+='\\x20'+_0xa0964e,(_0xa0964e==='android'||_0xa0964e==='emulator'&&((_0x35201b=_0x356574[_0x15e968(0x127)])==null?void 0x0:_0x35201b[_0x15e968(0xe1)])===_0x15e968(0xf7))&&(_0xc62dca=_0x15e968(0xf7)))),_0x356574[_0x15e968(0x172)]={'id':+new Date(),'tool':_0x59b369},_0x3730dc&&_0x59b369&&!_0x155aea&&(_0xa0964e?console[_0x15e968(0x18f)](_0x15e968(0x153)+_0xa0964e+_0x15e968(0xde)):console[_0x15e968(0x18f)](_0x15e968(0x108)+(_0x59b369[_0x15e968(0x16a)](0x0)[_0x15e968(0x179)]()+_0x59b369[_0x15e968(0xbc)](0x1))+',','background:\\x20rgb(30,30,30);\\x20color:\\x20rgb(255,213,92)','see\\x20https://tinyurl.com/2vt8jxzw\\x20for\\x20more\\x20info.'));}let _0x2792ac=new z(_0x356574,_0xc62dca,_0x3e9af9,_0x13e85e,_0x4f2905,_0x49148c);return _0x2792ac['send'][_0x15e968(0x10b)](_0x2792ac);}catch(_0x26b808){return console[_0x15e968(0xf4)](_0x15e968(0x100),_0x26b808&&_0x26b808[_0x15e968(0x163)]),()=>{};}});return _0x1fef62=>_0x304c17[_0x455914(0x19f)](_0x1eb234=>_0x1eb234(_0x1fef62));}function _0x1e22(){var _0x11e076=['WebSocket','reducedLimits','parse','remix','setter','warn','eventReceivedCallback','funcName','10.0.2.2','versions','_maxConnectAttemptCount','_isMap','console','function','parent','_quotedRegExp','_setNodeLabel','logger\\x20failed\\x20to\\x20connect\\x20to\\x20host','getWebSocketClass','Console\\x20Ninja\\x20failed\\x20to\\x20send\\x20logs,\\x20refreshing\\x20the\\x20page\\x20may\\x20help;\\x20also\\x20see\\x20','_setNodeId','value','undefined','resetOnProcessingTimeAverageMs','Boolean','%c\\x20Console\\x20Ninja\\x20extension\\x20is\\x20connected\\x20to\\x20','length','_addProperty','bind','number','_additionalMetadata','perLogpoint','_connectToHostNow','_addFunctionsNode','_property','\\x20server','3747935DmFdzh','getter','autoExpand','hasOwnProperty','error','Number','gateway.docker.internal','node','[object\\x20Array]','1.0.0','50471','process','_isNegativeZero','isExpressionToEvaluate','_type','_numberRegExp','_dateToString','args','failed\\x20to\\x20find\\x20and\\x20load\\x20WebSocket','close','location','Promise','toLowerCase','[object\\x20Set]','constructor','test','1439030XNdjpH','bigint','rootExpression','_keyStrRegExp','_treeNodePropertiesAfterFullValue','4291744QSowYd','default','...','[object\\x20Date]','call','_blacklistedProperty','_WebSocketClass','stringify','_getOwnPropertyNames','_undefined','valueOf','_setNodeExpressionPath','_connectAttemptCount','_hasSymbolPropertyOnItsPath','HTMLAllCollection','_ws','match','resolve','1785850006638','NEXT_RUNTIME','_addObjectProperty','RegExp','reduceLimits','current','astro','9020151TsMwkp','replace','_addLoadNode','elements','_inBrowser','count','bound\\x20Promise','split','Console\\x20Ninja\\x20extension\\x20is\\x20connected\\x20to\\x20','env','then','name','autoExpandPreviousObjects','expo','type','stack','ninjaSuppressConsole','Error','_p_name','url','slice','cappedProps','expId','autoExpandLimit','message','_WebSocket','Symbol','_p_length','push','dockerizedApp','_consoleNinjaAllowedToStart','charAt','catch','https://tinyurl.com/37x8b79t','path','method','hits','cappedElements','data','_console_ninja_session','_regExpToString','_objectToString','_setNodeQueryPath','_attemptToReconnectShortly','timeStamp','12VwGZsQ','toUpperCase','join','return\\x20import(url.pathToFileURL(path.join(nodeModules,\\x20\\x27ws/index.js\\x27)).toString());','props','_inNextEdge','includes','indexOf','_connected','_capIfString','nan','failed\\x20to\\x20connect\\x20to\\x20host:\\x20','_sendErrorMessage','reducePolicy','autoExpandMaxDepth','2rGOvyV','','iterator','readyState','reduceOnAccumulatedProcessingTimeMs','_connecting','Set','fromCharCode','log','364836zemNqu','_processTreeNodeResult','unshift','boolean','expressionsToEvaluate','null','logger\\x20websocket\\x20error','global','negativeZero','autoExpandPropertyCount','getOwnPropertyNames','strLength','prototype','resetWhenQuietMs','next.js','forEach','28UCZLTw','origin','negativeInfinity','_setNodeExpandableState','stackTraceLimit','array','Map','NEGATIVE_INFINITY','onopen','time','_isPrimitiveType','symbol','now','totalStrLength','defaultLimits','_socket','_setNodePermissions','_sortProps','map','\\x20browser','noFunctions','String','reduceOnCount','react-native','reload','sortProps','_cleanNode','479680onIUXh','allStrLength','_hasMapOnItsPath','_console_ninja','host','_ninjaIgnoreNextError','hrtime','get','_allowedToConnectOnSend','318788AtTvfk','index','capped','serialize','logger\\x20failed\\x20to\\x20connect\\x20to\\x20host,\\x20see\\x20','elapsed','onerror','substr','modules','depth','unref','resolveGetters','perf_hooks','emulator','11dPZsve','port','endsWith','disabledLog','performance','import(\\x27url\\x27)','isArray','nodeModules','edge','_allowedToSend','next.js','_isSet','_propertyName','level','_reconnectTimeout','_isPrimitiveWrapperType','POSITIVE_INFINITY','pop','unknown','1','trace','string','object','set','_HTMLAllCollection','_getOwnPropertyDescriptor','toString',',\\x20see\\x20https://tinyurl.com/2vt8jxzw\\x20for\\x20more\\x20info.','getOwnPropertySymbols','_Symbol','hostname','_p_','_disposeWebsocket','_webSocketErrorDocsLink','sort',[\"localhost\",\"127.0.0.1\",\"example.cypress.io\",\"10.0.2.2\",\"Rengkat\",\"192.168.100.71\"],'Buffer','_isArray','_isUndefined','_treeNodePropertiesBeforeFullValue','date','_hasSetOnItsPath','_extendedWarning',\"c:\\\\Users\\\\USER\\\\.vscode\\\\extensions\\\\wallabyjs.console-ninja-1.0.538\\\\node_modules\"];_0x1e22=function(){return _0x11e076;};return _0x1e22();}function ne(_0x540f28,_0xd7920c,_0x512d85,_0x4a5a92){var _0x24346c=_0x3dfa8d;_0x4a5a92&&_0x540f28===_0x24346c(0xa9)&&_0x512d85['location'][_0x24346c(0xa9)]();}function b(_0x4331bc){var _0x3718e1=_0x3dfa8d,_0x3fe6e6,_0x39bebb;let _0x41771f=function(_0x2173ed,_0x5bcd16){return _0x5bcd16-_0x2173ed;},_0x269a17;if(_0x4331bc[_0x3718e1(0xc7)])_0x269a17=function(){var _0x21660=_0x3718e1;return _0x4331bc[_0x21660(0xc7)]['now']();};else{if(_0x4331bc[_0x3718e1(0x11e)]&&_0x4331bc[_0x3718e1(0x11e)][_0x3718e1(0xb2)]&&((_0x39bebb=(_0x3fe6e6=_0x4331bc[_0x3718e1(0x11e)])==null?void 0x0:_0x3fe6e6[_0x3718e1(0x154)])==null?void 0x0:_0x39bebb['NEXT_RUNTIME'])!==_0x3718e1(0xcb))_0x269a17=function(){var _0x299c0f=_0x3718e1;return _0x4331bc[_0x299c0f(0x11e)][_0x299c0f(0xb2)]();},_0x41771f=function(_0x55e342,_0x4cd3d4){return 0x3e8*(_0x4cd3d4[0x0]-_0x55e342[0x0])+(_0x4cd3d4[0x1]-_0x55e342[0x1])/0xf4240;};else try{let {performance:_0x361e32}=require(_0x3718e1(0xc1));_0x269a17=function(){var _0x1d95a7=_0x3718e1;return _0x361e32[_0x1d95a7(0x1ac)]();};}catch{_0x269a17=function(){return+new Date();};}}return{'elapsed':_0x41771f,'timeStamp':_0x269a17,'now':()=>Date[_0x3718e1(0x1ac)]()};}function X(_0x99f795,_0x46cab9,_0x14297c){var _0x15fbbc=_0x3dfa8d,_0x476aba,_0x585dea,_0x3677cc,_0x2d39c3,_0x43dc05,_0x446552,_0x4093b5;if(_0x99f795['_consoleNinjaAllowedToStart']!==void 0x0)return _0x99f795[_0x15fbbc(0x169)];let _0x190734=((_0x585dea=(_0x476aba=_0x99f795[_0x15fbbc(0x11e)])==null?void 0x0:_0x476aba[_0x15fbbc(0xf8)])==null?void 0x0:_0x585dea['node'])||((_0x2d39c3=(_0x3677cc=_0x99f795[_0x15fbbc(0x11e)])==null?void 0x0:_0x3677cc[_0x15fbbc(0x154)])==null?void 0x0:_0x2d39c3['NEXT_RUNTIME'])==='edge',_0x6d6fa=!!(_0x14297c===_0x15fbbc(0xa8)&&((_0x43dc05=_0x99f795['expo'])==null?void 0x0:_0x43dc05[_0x15fbbc(0xbd)]));function _0x3cd3d8(_0x4cafa6){var _0x5b3bcd=_0x15fbbc;if(_0x4cafa6['startsWith']('/')&&_0x4cafa6[_0x5b3bcd(0xc5)]('/')){let _0x4b4cc0=new RegExp(_0x4cafa6[_0x5b3bcd(0x15f)](0x1,-0x1));return _0x229cb2=>_0x4b4cc0[_0x5b3bcd(0x12c)](_0x229cb2);}else{if(_0x4cafa6[_0x5b3bcd(0x17e)]('*')||_0x4cafa6['includes']('?')){let _0x49dc36=new RegExp('^'+_0x4cafa6[_0x5b3bcd(0x14c)](/\\./g,String[_0x5b3bcd(0x18e)](0x5c)+'.')[_0x5b3bcd(0x14c)](/\\*/g,'.*')[_0x5b3bcd(0x14c)](/\\?/g,'.')+String[_0x5b3bcd(0x18e)](0x24));return _0x42a76d=>_0x49dc36['test'](_0x42a76d);}else return _0x3cc024=>_0x3cc024===_0x4cafa6;}}let _0x51a613=_0x46cab9['map'](_0x3cd3d8);return _0x99f795['_consoleNinjaAllowedToStart']=_0x190734||!_0x46cab9,!_0x99f795[_0x15fbbc(0x169)]&&((_0x446552=_0x99f795[_0x15fbbc(0x127)])==null?void 0x0:_0x446552[_0x15fbbc(0xe1)])&&(_0x99f795[_0x15fbbc(0x169)]=_0x51a613['some'](_0x2527e5=>_0x2527e5(_0x99f795[_0x15fbbc(0x127)][_0x15fbbc(0xe1)]))),_0x6d6fa&&!_0x99f795[_0x15fbbc(0x169)]&&!((_0x4093b5=_0x99f795[_0x15fbbc(0x127)])!=null&&_0x4093b5[_0x15fbbc(0xe1)])&&(_0x99f795[_0x15fbbc(0x169)]=!0x0),_0x99f795['_consoleNinjaAllowedToStart'];}function _0x50c4(_0x1a788e,_0x1d35f7){var _0x1e2285=_0x1e22();return _0x50c4=function(_0x50c407,_0x374f11){_0x50c407=_0x50c407-0xa5;var _0x430a48=_0x1e2285[_0x50c407];return _0x430a48;},_0x50c4(_0x1a788e,_0x1d35f7);}function J(_0x1cd3e5,_0x1b3f4a,_0xd4991f,_0x29e915,_0x546a29,_0x12a555){var _0x2f17da=_0x3dfa8d;_0x1cd3e5=_0x1cd3e5,_0x1b3f4a=_0x1b3f4a,_0xd4991f=_0xd4991f,_0x29e915=_0x29e915,_0x546a29=_0x546a29,_0x546a29=_0x546a29||{},_0x546a29['defaultLimits']=_0x546a29[_0x2f17da(0x1ae)]||{},_0x546a29[_0x2f17da(0xf0)]=_0x546a29['reducedLimits']||{},_0x546a29[_0x2f17da(0x185)]=_0x546a29['reducePolicy']||{},_0x546a29[_0x2f17da(0x185)][_0x2f17da(0x10e)]=_0x546a29['reducePolicy']['perLogpoint']||{},_0x546a29[_0x2f17da(0x185)][_0x2f17da(0x197)]=_0x546a29['reducePolicy']['global']||{};let _0x24f1d2={'perLogpoint':{'reduceOnCount':_0x546a29[_0x2f17da(0x185)][_0x2f17da(0x10e)]['reduceOnCount']||0x32,'reduceOnAccumulatedProcessingTimeMs':_0x546a29[_0x2f17da(0x185)][_0x2f17da(0x10e)][_0x2f17da(0x18b)]||0x64,'resetWhenQuietMs':_0x546a29[_0x2f17da(0x185)][_0x2f17da(0x10e)][_0x2f17da(0x19d)]||0x1f4,'resetOnProcessingTimeAverageMs':_0x546a29[_0x2f17da(0x185)][_0x2f17da(0x10e)][_0x2f17da(0x106)]||0x64},'global':{'reduceOnCount':_0x546a29[_0x2f17da(0x185)][_0x2f17da(0x197)][_0x2f17da(0xa7)]||0x3e8,'reduceOnAccumulatedProcessingTimeMs':_0x546a29['reducePolicy'][_0x2f17da(0x197)][_0x2f17da(0x18b)]||0x12c,'resetWhenQuietMs':_0x546a29['reducePolicy'][_0x2f17da(0x197)][_0x2f17da(0x19d)]||0x32,'resetOnProcessingTimeAverageMs':_0x546a29[_0x2f17da(0x185)][_0x2f17da(0x197)][_0x2f17da(0x106)]||0x64}},_0x5260e5=b(_0x1cd3e5),_0x58a6ca=_0x5260e5['elapsed'],_0x17957c=_0x5260e5[_0x2f17da(0x177)];function _0x477a1f(){var _0x47053e=_0x2f17da;this[_0x47053e(0x130)]=/^(?!(?:do|if|in|for|let|new|try|var|case|else|enum|eval|false|null|this|true|void|with|break|catch|class|const|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$)[_$a-zA-Z\\xA0-\\uFFFF][_$a-zA-Z0-9\\xA0-\\uFFFF]*$/,this[_0x47053e(0x122)]=/^(0|[1-9][0-9]*)$/,this[_0x47053e(0xfe)]=/'([^\\\\']|\\\\')*'/,this[_0x47053e(0x13b)]=_0x1cd3e5['undefined'],this['_HTMLAllCollection']=_0x1cd3e5[_0x47053e(0x140)],this[_0x47053e(0xdc)]=Object['getOwnPropertyDescriptor'],this[_0x47053e(0x13a)]=Object[_0x47053e(0x19a)],this[_0x47053e(0xe0)]=_0x1cd3e5[_0x47053e(0x165)],this[_0x47053e(0x173)]=RegExp[_0x47053e(0x19c)][_0x47053e(0xdd)],this[_0x47053e(0x123)]=Date[_0x47053e(0x19c)][_0x47053e(0xdd)];}_0x477a1f[_0x2f17da(0x19c)]['serialize']=function(_0x2a0c13,_0x1a040f,_0x10791f,_0x50474d){var _0x1d9ed4=_0x2f17da,_0x36a1ec=this,_0x59f3da=_0x10791f[_0x1d9ed4(0x115)];function _0x17eb05(_0x28dbda,_0x111653,_0x5959de){var _0x567f7a=_0x1d9ed4;_0x111653[_0x567f7a(0x159)]='unknown',_0x111653['error']=_0x28dbda[_0x567f7a(0x163)],_0x11d1b6=_0x5959de[_0x567f7a(0x11a)][_0x567f7a(0x149)],_0x5959de[_0x567f7a(0x11a)][_0x567f7a(0x149)]=_0x111653,_0x36a1ec['_treeNodePropertiesBeforeFullValue'](_0x111653,_0x5959de);}let _0xa2077,_0x21d796,_0x17cedc=_0x1cd3e5[_0x1d9ed4(0x15b)];_0x1cd3e5[_0x1d9ed4(0x15b)]=!0x0,_0x1cd3e5[_0x1d9ed4(0xfb)]&&(_0xa2077=_0x1cd3e5['console'][_0x1d9ed4(0x117)],_0x21d796=_0x1cd3e5[_0x1d9ed4(0xfb)][_0x1d9ed4(0xf4)],_0xa2077&&(_0x1cd3e5[_0x1d9ed4(0xfb)][_0x1d9ed4(0x117)]=function(){}),_0x21d796&&(_0x1cd3e5[_0x1d9ed4(0xfb)][_0x1d9ed4(0xf4)]=function(){}));try{try{_0x10791f[_0x1d9ed4(0xd0)]++,_0x10791f['autoExpand']&&_0x10791f[_0x1d9ed4(0x157)][_0x1d9ed4(0x167)](_0x1a040f);var _0x3a33c0,_0x2414fb,_0x4df105,_0xd16ccd,_0x38ecae=[],_0x49b0d6=[],_0x45edb5,_0x220ad3=this[_0x1d9ed4(0x121)](_0x1a040f),_0x6ebfb8=_0x220ad3==='array',_0x533b14=!0x1,_0x3a5615=_0x220ad3==='function',_0xd73f20=this[_0x1d9ed4(0x1aa)](_0x220ad3),_0x37846b=this[_0x1d9ed4(0xd2)](_0x220ad3),_0x2a65af=_0xd73f20||_0x37846b,_0x158c63={},_0x5ee533=0x0,_0x587d08=!0x1,_0x11d1b6,_0x4fdb8f=/^(([1-9]{1}[0-9]*)|0)$/;if(_0x10791f[_0x1d9ed4(0xbe)]){if(_0x6ebfb8){if(_0x2414fb=_0x1a040f[_0x1d9ed4(0x109)],_0x2414fb>_0x10791f['elements']){for(_0x4df105=0x0,_0xd16ccd=_0x10791f['elements'],_0x3a33c0=_0x4df105;_0x3a33c0<_0xd16ccd;_0x3a33c0++)_0x49b0d6[_0x1d9ed4(0x167)](_0x36a1ec[_0x1d9ed4(0x10a)](_0x38ecae,_0x1a040f,_0x220ad3,_0x3a33c0,_0x10791f));_0x2a0c13[_0x1d9ed4(0x170)]=!0x0;}else{for(_0x4df105=0x0,_0xd16ccd=_0x2414fb,_0x3a33c0=_0x4df105;_0x3a33c0<_0xd16ccd;_0x3a33c0++)_0x49b0d6[_0x1d9ed4(0x167)](_0x36a1ec[_0x1d9ed4(0x10a)](_0x38ecae,_0x1a040f,_0x220ad3,_0x3a33c0,_0x10791f));}_0x10791f[_0x1d9ed4(0x199)]+=_0x49b0d6[_0x1d9ed4(0x109)];}if(!(_0x220ad3===_0x1d9ed4(0x195)||_0x220ad3===_0x1d9ed4(0x105))&&!_0xd73f20&&_0x220ad3!==_0x1d9ed4(0xa6)&&_0x220ad3!==_0x1d9ed4(0xe7)&&_0x220ad3!=='bigint'){var _0x4086cc=_0x50474d[_0x1d9ed4(0x17c)]||_0x10791f[_0x1d9ed4(0x17c)];if(this[_0x1d9ed4(0xce)](_0x1a040f)?(_0x3a33c0=0x0,_0x1a040f[_0x1d9ed4(0x19f)](function(_0x19b6c3){var _0x560457=_0x1d9ed4;if(_0x5ee533++,_0x10791f['autoExpandPropertyCount']++,_0x5ee533>_0x4086cc){_0x587d08=!0x0;return;}if(!_0x10791f['isExpressionToEvaluate']&&_0x10791f[_0x560457(0x115)]&&_0x10791f[_0x560457(0x199)]>_0x10791f[_0x560457(0x162)]){_0x587d08=!0x0;return;}_0x49b0d6[_0x560457(0x167)](_0x36a1ec[_0x560457(0x10a)](_0x38ecae,_0x1a040f,_0x560457(0x18d),_0x3a33c0++,_0x10791f,function(_0x359d31){return function(){return _0x359d31;};}(_0x19b6c3)));})):this[_0x1d9ed4(0xfa)](_0x1a040f)&&_0x1a040f[_0x1d9ed4(0x19f)](function(_0x52dd4b,_0x5d4d58){var _0x28b0fd=_0x1d9ed4;if(_0x5ee533++,_0x10791f['autoExpandPropertyCount']++,_0x5ee533>_0x4086cc){_0x587d08=!0x0;return;}if(!_0x10791f[_0x28b0fd(0x120)]&&_0x10791f[_0x28b0fd(0x115)]&&_0x10791f['autoExpandPropertyCount']>_0x10791f[_0x28b0fd(0x162)]){_0x587d08=!0x0;return;}var _0x2cfbfe=_0x5d4d58[_0x28b0fd(0xdd)]();_0x2cfbfe[_0x28b0fd(0x109)]>0x64&&(_0x2cfbfe=_0x2cfbfe[_0x28b0fd(0x15f)](0x0,0x64)+_0x28b0fd(0x134)),_0x49b0d6[_0x28b0fd(0x167)](_0x36a1ec[_0x28b0fd(0x10a)](_0x38ecae,_0x1a040f,'Map',_0x2cfbfe,_0x10791f,function(_0xdb2028){return function(){return _0xdb2028;};}(_0x52dd4b)));}),!_0x533b14){try{for(_0x45edb5 in _0x1a040f)if(!(_0x6ebfb8&&_0x4fdb8f[_0x1d9ed4(0x12c)](_0x45edb5))&&!this[_0x1d9ed4(0x137)](_0x1a040f,_0x45edb5,_0x10791f)){if(_0x5ee533++,_0x10791f[_0x1d9ed4(0x199)]++,_0x5ee533>_0x4086cc){_0x587d08=!0x0;break;}if(!_0x10791f['isExpressionToEvaluate']&&_0x10791f[_0x1d9ed4(0x115)]&&_0x10791f['autoExpandPropertyCount']>_0x10791f[_0x1d9ed4(0x162)]){_0x587d08=!0x0;break;}_0x49b0d6[_0x1d9ed4(0x167)](_0x36a1ec[_0x1d9ed4(0x146)](_0x38ecae,_0x158c63,_0x1a040f,_0x220ad3,_0x45edb5,_0x10791f));}}catch{}if(_0x158c63[_0x1d9ed4(0x166)]=!0x0,_0x3a5615&&(_0x158c63[_0x1d9ed4(0x15d)]=!0x0),!_0x587d08){var _0x484fbd=[]['concat'](this['_getOwnPropertyNames'](_0x1a040f))['concat'](this['_getOwnPropertySymbols'](_0x1a040f));for(_0x3a33c0=0x0,_0x2414fb=_0x484fbd[_0x1d9ed4(0x109)];_0x3a33c0<_0x2414fb;_0x3a33c0++)if(_0x45edb5=_0x484fbd[_0x3a33c0],!(_0x6ebfb8&&_0x4fdb8f['test'](_0x45edb5[_0x1d9ed4(0xdd)]()))&&!this[_0x1d9ed4(0x137)](_0x1a040f,_0x45edb5,_0x10791f)&&!_0x158c63[typeof _0x45edb5!=_0x1d9ed4(0x1ab)?'_p_'+_0x45edb5['toString']():_0x45edb5]){if(_0x5ee533++,_0x10791f[_0x1d9ed4(0x199)]++,_0x5ee533>_0x4086cc){_0x587d08=!0x0;break;}if(!_0x10791f[_0x1d9ed4(0x120)]&&_0x10791f[_0x1d9ed4(0x115)]&&_0x10791f[_0x1d9ed4(0x199)]>_0x10791f[_0x1d9ed4(0x162)]){_0x587d08=!0x0;break;}_0x49b0d6[_0x1d9ed4(0x167)](_0x36a1ec[_0x1d9ed4(0x146)](_0x38ecae,_0x158c63,_0x1a040f,_0x220ad3,_0x45edb5,_0x10791f));}}}}}if(_0x2a0c13[_0x1d9ed4(0x159)]=_0x220ad3,_0x2a65af?(_0x2a0c13[_0x1d9ed4(0x104)]=_0x1a040f['valueOf'](),this[_0x1d9ed4(0x181)](_0x220ad3,_0x2a0c13,_0x10791f,_0x50474d)):_0x220ad3===_0x1d9ed4(0xeb)?_0x2a0c13[_0x1d9ed4(0x104)]=this[_0x1d9ed4(0x123)][_0x1d9ed4(0x136)](_0x1a040f):_0x220ad3===_0x1d9ed4(0x12e)?_0x2a0c13['value']=_0x1a040f[_0x1d9ed4(0xdd)]():_0x220ad3===_0x1d9ed4(0x147)?_0x2a0c13[_0x1d9ed4(0x104)]=this[_0x1d9ed4(0x173)]['call'](_0x1a040f):_0x220ad3===_0x1d9ed4(0x1ab)&&this[_0x1d9ed4(0xe0)]?_0x2a0c13['value']=this[_0x1d9ed4(0xe0)][_0x1d9ed4(0x19c)][_0x1d9ed4(0xdd)]['call'](_0x1a040f):!_0x10791f[_0x1d9ed4(0xbe)]&&!(_0x220ad3===_0x1d9ed4(0x195)||_0x220ad3==='undefined')&&(delete _0x2a0c13['value'],_0x2a0c13['capped']=!0x0),_0x587d08&&(_0x2a0c13[_0x1d9ed4(0x160)]=!0x0),_0x11d1b6=_0x10791f[_0x1d9ed4(0x11a)]['current'],_0x10791f[_0x1d9ed4(0x11a)]['current']=_0x2a0c13,this['_treeNodePropertiesBeforeFullValue'](_0x2a0c13,_0x10791f),_0x49b0d6['length']){for(_0x3a33c0=0x0,_0x2414fb=_0x49b0d6[_0x1d9ed4(0x109)];_0x3a33c0<_0x2414fb;_0x3a33c0++)_0x49b0d6[_0x3a33c0](_0x3a33c0);}_0x38ecae[_0x1d9ed4(0x109)]&&(_0x2a0c13['props']=_0x38ecae);}catch(_0x437f14){_0x17eb05(_0x437f14,_0x2a0c13,_0x10791f);}this['_additionalMetadata'](_0x1a040f,_0x2a0c13),this['_treeNodePropertiesAfterFullValue'](_0x2a0c13,_0x10791f),_0x10791f[_0x1d9ed4(0x11a)][_0x1d9ed4(0x149)]=_0x11d1b6,_0x10791f[_0x1d9ed4(0xd0)]--,_0x10791f[_0x1d9ed4(0x115)]=_0x59f3da,_0x10791f[_0x1d9ed4(0x115)]&&_0x10791f[_0x1d9ed4(0x157)][_0x1d9ed4(0xd4)]();}finally{_0xa2077&&(_0x1cd3e5[_0x1d9ed4(0xfb)]['error']=_0xa2077),_0x21d796&&(_0x1cd3e5[_0x1d9ed4(0xfb)][_0x1d9ed4(0xf4)]=_0x21d796),_0x1cd3e5['ninjaSuppressConsole']=_0x17cedc;}return _0x2a0c13;},_0x477a1f['prototype']['_getOwnPropertySymbols']=function(_0x2eb67d){var _0x3b843a=_0x2f17da;return Object[_0x3b843a(0xdf)]?Object[_0x3b843a(0xdf)](_0x2eb67d):[];},_0x477a1f[_0x2f17da(0x19c)]['_isSet']=function(_0x2e489d){var _0x1c9db8=_0x2f17da;return!!(_0x2e489d&&_0x1cd3e5[_0x1c9db8(0x18d)]&&this['_objectToString'](_0x2e489d)===_0x1c9db8(0x12a)&&_0x2e489d['forEach']);},_0x477a1f['prototype'][_0x2f17da(0x137)]=function(_0x121fb5,_0x1e7f5c,_0x2a6355){var _0x1c6419=_0x2f17da;if(!_0x2a6355['resolveGetters']){let _0x25a888=this[_0x1c6419(0xdc)](_0x121fb5,_0x1e7f5c);if(_0x25a888&&_0x25a888[_0x1c6419(0xb3)])return!0x0;}return _0x2a6355[_0x1c6419(0xa5)]?typeof _0x121fb5[_0x1e7f5c]==_0x1c6419(0xfc):!0x1;},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x121)]=function(_0x23826a){var _0x5566cd=_0x2f17da,_0x4332ca='';return _0x4332ca=typeof _0x23826a,_0x4332ca===_0x5566cd(0xd9)?this['_objectToString'](_0x23826a)==='[object\\x20Array]'?_0x4332ca=_0x5566cd(0x1a5):this[_0x5566cd(0x174)](_0x23826a)===_0x5566cd(0x135)?_0x4332ca=_0x5566cd(0xeb):this[_0x5566cd(0x174)](_0x23826a)==='[object\\x20BigInt]'?_0x4332ca=_0x5566cd(0x12e):_0x23826a===null?_0x4332ca=_0x5566cd(0x195):_0x23826a['constructor']&&(_0x4332ca=_0x23826a[_0x5566cd(0x12b)][_0x5566cd(0x156)]||_0x4332ca):_0x4332ca==='undefined'&&this[_0x5566cd(0xdb)]&&_0x23826a instanceof this[_0x5566cd(0xdb)]&&(_0x4332ca='HTMLAllCollection'),_0x4332ca;},_0x477a1f['prototype'][_0x2f17da(0x174)]=function(_0x1a015b){var _0x1fbbb0=_0x2f17da;return Object[_0x1fbbb0(0x19c)][_0x1fbbb0(0xdd)]['call'](_0x1a015b);},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x1aa)]=function(_0x3fd7dc){var _0x504d74=_0x2f17da;return _0x3fd7dc===_0x504d74(0x193)||_0x3fd7dc==='string'||_0x3fd7dc==='number';},_0x477a1f[_0x2f17da(0x19c)]['_isPrimitiveWrapperType']=function(_0x135fd1){var _0x121d3b=_0x2f17da;return _0x135fd1===_0x121d3b(0x107)||_0x135fd1==='String'||_0x135fd1==='Number';},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x10a)]=function(_0x13b876,_0x43516e,_0x4e2be8,_0xe68e8,_0x5d92b8,_0x4758de){var _0x4a14ce=this;return function(_0x1c1fe5){var _0x268a44=_0x50c4,_0x459e2d=_0x5d92b8['node'][_0x268a44(0x149)],_0x287119=_0x5d92b8[_0x268a44(0x11a)][_0x268a44(0xb6)],_0x232db1=_0x5d92b8[_0x268a44(0x11a)][_0x268a44(0xfd)];_0x5d92b8[_0x268a44(0x11a)][_0x268a44(0xfd)]=_0x459e2d,_0x5d92b8[_0x268a44(0x11a)][_0x268a44(0xb6)]=typeof _0xe68e8==_0x268a44(0x10c)?_0xe68e8:_0x1c1fe5,_0x13b876[_0x268a44(0x167)](_0x4a14ce[_0x268a44(0x111)](_0x43516e,_0x4e2be8,_0xe68e8,_0x5d92b8,_0x4758de)),_0x5d92b8[_0x268a44(0x11a)][_0x268a44(0xfd)]=_0x232db1,_0x5d92b8[_0x268a44(0x11a)][_0x268a44(0xb6)]=_0x287119;};},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x146)]=function(_0x4dbc18,_0x34e38e,_0x6441f9,_0x27da1d,_0x31e721,_0x1c9d05,_0x4cbf62){var _0x50a790=_0x2f17da,_0x9f4d24=this;return _0x34e38e[typeof _0x31e721!=_0x50a790(0x1ab)?'_p_'+_0x31e721[_0x50a790(0xdd)]():_0x31e721]=!0x0,function(_0x255dc9){var _0x26f12c=_0x50a790,_0x2e48cd=_0x1c9d05[_0x26f12c(0x11a)][_0x26f12c(0x149)],_0x2d11ff=_0x1c9d05[_0x26f12c(0x11a)][_0x26f12c(0xb6)],_0x52f5dc=_0x1c9d05[_0x26f12c(0x11a)]['parent'];_0x1c9d05[_0x26f12c(0x11a)][_0x26f12c(0xfd)]=_0x2e48cd,_0x1c9d05[_0x26f12c(0x11a)][_0x26f12c(0xb6)]=_0x255dc9,_0x4dbc18[_0x26f12c(0x167)](_0x9f4d24[_0x26f12c(0x111)](_0x6441f9,_0x27da1d,_0x31e721,_0x1c9d05,_0x4cbf62)),_0x1c9d05[_0x26f12c(0x11a)][_0x26f12c(0xfd)]=_0x52f5dc,_0x1c9d05['node'][_0x26f12c(0xb6)]=_0x2d11ff;};},_0x477a1f[_0x2f17da(0x19c)]['_property']=function(_0x42eaa6,_0xbcbd4f,_0x58f15f,_0x2c6900,_0x38ca63){var _0x3a85c8=_0x2f17da,_0x2166b4=this;_0x38ca63||(_0x38ca63=function(_0x3d9404,_0x410fea){return _0x3d9404[_0x410fea];});var _0xd6359e=_0x58f15f[_0x3a85c8(0xdd)](),_0x53eb90=_0x2c6900[_0x3a85c8(0x194)]||{},_0x33753c=_0x2c6900[_0x3a85c8(0xbe)],_0x1f58a5=_0x2c6900[_0x3a85c8(0x120)];try{var _0x46531c=this['_isMap'](_0x42eaa6),_0x3d3e6a=_0xd6359e;_0x46531c&&_0x3d3e6a[0x0]==='\\x27'&&(_0x3d3e6a=_0x3d3e6a[_0x3a85c8(0xbc)](0x1,_0x3d3e6a[_0x3a85c8(0x109)]-0x2));var _0x1c7ab5=_0x2c6900['expressionsToEvaluate']=_0x53eb90[_0x3a85c8(0xe2)+_0x3d3e6a];_0x1c7ab5&&(_0x2c6900[_0x3a85c8(0xbe)]=_0x2c6900[_0x3a85c8(0xbe)]+0x1),_0x2c6900['isExpressionToEvaluate']=!!_0x1c7ab5;var _0x2d9eff=typeof _0x58f15f=='symbol',_0x1df9dd={'name':_0x2d9eff||_0x46531c?_0xd6359e:this[_0x3a85c8(0xcf)](_0xd6359e)};if(_0x2d9eff&&(_0x1df9dd[_0x3a85c8(0x1ab)]=!0x0),!(_0xbcbd4f===_0x3a85c8(0x1a5)||_0xbcbd4f===_0x3a85c8(0x15c))){var _0x7d0b2d=this[_0x3a85c8(0xdc)](_0x42eaa6,_0x58f15f);if(_0x7d0b2d&&(_0x7d0b2d[_0x3a85c8(0xda)]&&(_0x1df9dd[_0x3a85c8(0xf3)]=!0x0),_0x7d0b2d[_0x3a85c8(0xb3)]&&!_0x1c7ab5&&!_0x2c6900[_0x3a85c8(0xc0)]))return _0x1df9dd[_0x3a85c8(0x114)]=!0x0,this[_0x3a85c8(0x191)](_0x1df9dd,_0x2c6900),_0x1df9dd;}var _0x494b46;try{_0x494b46=_0x38ca63(_0x42eaa6,_0x58f15f);}catch(_0x185d6b){return _0x1df9dd={'name':_0xd6359e,'type':_0x3a85c8(0xd5),'error':_0x185d6b[_0x3a85c8(0x163)]},this[_0x3a85c8(0x191)](_0x1df9dd,_0x2c6900),_0x1df9dd;}var _0x12e83e=this[_0x3a85c8(0x121)](_0x494b46),_0x251191=this[_0x3a85c8(0x1aa)](_0x12e83e);if(_0x1df9dd[_0x3a85c8(0x159)]=_0x12e83e,_0x251191)this[_0x3a85c8(0x191)](_0x1df9dd,_0x2c6900,_0x494b46,function(){var _0x1cdefc=_0x3a85c8;_0x1df9dd[_0x1cdefc(0x104)]=_0x494b46[_0x1cdefc(0x13c)](),!_0x1c7ab5&&_0x2166b4['_capIfString'](_0x12e83e,_0x1df9dd,_0x2c6900,{});});else{var _0x1ac42f=_0x2c6900[_0x3a85c8(0x115)]&&_0x2c6900[_0x3a85c8(0xd0)]<_0x2c6900[_0x3a85c8(0x186)]&&_0x2c6900[_0x3a85c8(0x157)][_0x3a85c8(0x17f)](_0x494b46)<0x0&&_0x12e83e!=='function'&&_0x2c6900['autoExpandPropertyCount']<_0x2c6900[_0x3a85c8(0x162)];_0x1ac42f||_0x2c6900[_0x3a85c8(0xd0)]<_0x33753c||_0x1c7ab5?this[_0x3a85c8(0xb8)](_0x1df9dd,_0x494b46,_0x2c6900,_0x1c7ab5||{}):this[_0x3a85c8(0x191)](_0x1df9dd,_0x2c6900,_0x494b46,function(){var _0x5d46d5=_0x3a85c8;_0x12e83e===_0x5d46d5(0x195)||_0x12e83e===_0x5d46d5(0x105)||(delete _0x1df9dd['value'],_0x1df9dd[_0x5d46d5(0xb7)]=!0x0);});}return _0x1df9dd;}finally{_0x2c6900[_0x3a85c8(0x194)]=_0x53eb90,_0x2c6900[_0x3a85c8(0xbe)]=_0x33753c,_0x2c6900['isExpressionToEvaluate']=_0x1f58a5;}},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x181)]=function(_0x1c47e6,_0x561fd3,_0x3fda7e,_0x2720a4){var _0x5dba76=_0x2f17da,_0x32bd0e=_0x2720a4[_0x5dba76(0x19b)]||_0x3fda7e[_0x5dba76(0x19b)];if((_0x1c47e6===_0x5dba76(0xd8)||_0x1c47e6===_0x5dba76(0xa6))&&_0x561fd3[_0x5dba76(0x104)]){let _0x4375ca=_0x561fd3[_0x5dba76(0x104)][_0x5dba76(0x109)];_0x3fda7e['allStrLength']+=_0x4375ca,_0x3fda7e[_0x5dba76(0xad)]>_0x3fda7e[_0x5dba76(0x1ad)]?(_0x561fd3[_0x5dba76(0xb7)]='',delete _0x561fd3[_0x5dba76(0x104)]):_0x4375ca>_0x32bd0e&&(_0x561fd3[_0x5dba76(0xb7)]=_0x561fd3[_0x5dba76(0x104)]['substr'](0x0,_0x32bd0e),delete _0x561fd3['value']);}},_0x477a1f['prototype'][_0x2f17da(0xfa)]=function(_0x147a1a){var _0x3744f8=_0x2f17da;return!!(_0x147a1a&&_0x1cd3e5['Map']&&this[_0x3744f8(0x174)](_0x147a1a)==='[object\\x20Map]'&&_0x147a1a['forEach']);},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0xcf)]=function(_0x29ab7e){var _0x356749=_0x2f17da;if(_0x29ab7e['match'](/^\\d+$/))return _0x29ab7e;var _0x1d36ec;try{_0x1d36ec=JSON[_0x356749(0x139)](''+_0x29ab7e);}catch{_0x1d36ec='\\x22'+this[_0x356749(0x174)](_0x29ab7e)+'\\x22';}return _0x1d36ec[_0x356749(0x142)](/^\"([a-zA-Z_][a-zA-Z_0-9]*)\"$/)?_0x1d36ec=_0x1d36ec[_0x356749(0xbc)](0x1,_0x1d36ec[_0x356749(0x109)]-0x2):_0x1d36ec=_0x1d36ec[_0x356749(0x14c)](/'/g,'\\x5c\\x27')[_0x356749(0x14c)](/\\\\\"/g,'\\x22')[_0x356749(0x14c)](/(^\"|\"$)/g,'\\x27'),_0x1d36ec;},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x191)]=function(_0x5e43f6,_0x20bf41,_0xa11440,_0x10cb21){var _0x35c896=_0x2f17da;this[_0x35c896(0xea)](_0x5e43f6,_0x20bf41),_0x10cb21&&_0x10cb21(),this[_0x35c896(0x10d)](_0xa11440,_0x5e43f6),this[_0x35c896(0x131)](_0x5e43f6,_0x20bf41);},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0xea)]=function(_0xfb984,_0x614f20){var _0x269f14=_0x2f17da;this[_0x269f14(0x103)](_0xfb984,_0x614f20),this[_0x269f14(0x175)](_0xfb984,_0x614f20),this[_0x269f14(0x13d)](_0xfb984,_0x614f20),this['_setNodePermissions'](_0xfb984,_0x614f20);},_0x477a1f['prototype'][_0x2f17da(0x103)]=function(_0x35eea6,_0x4cfce5){},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x175)]=function(_0x166fcf,_0x15a30f){},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0xff)]=function(_0x5b8369,_0xacf5e7){},_0x477a1f['prototype'][_0x2f17da(0xe9)]=function(_0x53561c){var _0x5074a4=_0x2f17da;return _0x53561c===this[_0x5074a4(0x13b)];},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x131)]=function(_0x98353d,_0x1df50e){var _0x3fe925=_0x2f17da;this[_0x3fe925(0xff)](_0x98353d,_0x1df50e),this[_0x3fe925(0x1a3)](_0x98353d),_0x1df50e[_0x3fe925(0xaa)]&&this[_0x3fe925(0x1b1)](_0x98353d),this['_addFunctionsNode'](_0x98353d,_0x1df50e),this['_addLoadNode'](_0x98353d,_0x1df50e),this[_0x3fe925(0xab)](_0x98353d);},_0x477a1f['prototype'][_0x2f17da(0x10d)]=function(_0x40456b,_0x31f961){var _0x19effb=_0x2f17da;try{_0x40456b&&typeof _0x40456b['length']=='number'&&(_0x31f961[_0x19effb(0x109)]=_0x40456b[_0x19effb(0x109)]);}catch{}if(_0x31f961[_0x19effb(0x159)]===_0x19effb(0x10c)||_0x31f961[_0x19effb(0x159)]===_0x19effb(0x118)){if(isNaN(_0x31f961[_0x19effb(0x104)]))_0x31f961[_0x19effb(0x182)]=!0x0,delete _0x31f961[_0x19effb(0x104)];else switch(_0x31f961['value']){case Number[_0x19effb(0xd3)]:_0x31f961['positiveInfinity']=!0x0,delete _0x31f961[_0x19effb(0x104)];break;case Number[_0x19effb(0x1a7)]:_0x31f961[_0x19effb(0x1a2)]=!0x0,delete _0x31f961['value'];break;case 0x0:this[_0x19effb(0x11f)](_0x31f961['value'])&&(_0x31f961[_0x19effb(0x198)]=!0x0);break;}}else _0x31f961[_0x19effb(0x159)]===_0x19effb(0xfc)&&typeof _0x40456b['name']==_0x19effb(0xd8)&&_0x40456b['name']&&_0x31f961[_0x19effb(0x156)]&&_0x40456b[_0x19effb(0x156)]!==_0x31f961[_0x19effb(0x156)]&&(_0x31f961[_0x19effb(0xf6)]=_0x40456b[_0x19effb(0x156)]);},_0x477a1f[_0x2f17da(0x19c)]['_isNegativeZero']=function(_0x5d67e2){return 0x1/_0x5d67e2===Number['NEGATIVE_INFINITY'];},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x1b1)]=function(_0x437298){var _0x446a42=_0x2f17da;!_0x437298[_0x446a42(0x17c)]||!_0x437298['props'][_0x446a42(0x109)]||_0x437298[_0x446a42(0x159)]===_0x446a42(0x1a5)||_0x437298[_0x446a42(0x159)]===_0x446a42(0x1a6)||_0x437298['type']===_0x446a42(0x18d)||_0x437298[_0x446a42(0x17c)][_0x446a42(0xe5)](function(_0x5044ff,_0x3490e2){var _0x254448=_0x446a42,_0x5db668=_0x5044ff[_0x254448(0x156)]['toLowerCase'](),_0x1b2766=_0x3490e2[_0x254448(0x156)][_0x254448(0x129)]();return _0x5db668<_0x1b2766?-0x1:_0x5db668>_0x1b2766?0x1:0x0;});},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x110)]=function(_0x197ac8,_0x19e10c){var _0x5295c8=_0x2f17da;if(!(_0x19e10c[_0x5295c8(0xa5)]||!_0x197ac8[_0x5295c8(0x17c)]||!_0x197ac8[_0x5295c8(0x17c)]['length'])){for(var _0x1b6a64=[],_0x3fc820=[],_0x2b1164=0x0,_0x1cef32=_0x197ac8['props'][_0x5295c8(0x109)];_0x2b1164<_0x1cef32;_0x2b1164++){var _0xf3e7c7=_0x197ac8['props'][_0x2b1164];_0xf3e7c7[_0x5295c8(0x159)]===_0x5295c8(0xfc)?_0x1b6a64[_0x5295c8(0x167)](_0xf3e7c7):_0x3fc820[_0x5295c8(0x167)](_0xf3e7c7);}if(!(!_0x3fc820['length']||_0x1b6a64[_0x5295c8(0x109)]<=0x1)){_0x197ac8[_0x5295c8(0x17c)]=_0x3fc820;var _0x1db905={'functionsNode':!0x0,'props':_0x1b6a64};this['_setNodeId'](_0x1db905,_0x19e10c),this['_setNodeLabel'](_0x1db905,_0x19e10c),this[_0x5295c8(0x1a3)](_0x1db905),this[_0x5295c8(0x1b0)](_0x1db905,_0x19e10c),_0x1db905['id']+='\\x20f',_0x197ac8[_0x5295c8(0x17c)][_0x5295c8(0x192)](_0x1db905);}}},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x14d)]=function(_0x23ce28,_0x290709){},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0x1a3)]=function(_0x39e23a){},_0x477a1f[_0x2f17da(0x19c)][_0x2f17da(0xe8)]=function(_0x3d0fc3){var _0x3ce38e=_0x2f17da;return Array[_0x3ce38e(0xc9)](_0x3d0fc3)||typeof _0x3d0fc3=='object'&&this[_0x3ce38e(0x174)](_0x3d0fc3)===_0x3ce38e(0x11b);},_0x477a1f[_0x2f17da(0x19c)]['_setNodePermissions']=function(_0x31a7c2,_0x59135){},_0x477a1f[_0x2f17da(0x19c)]['_cleanNode']=function(_0x18e9b){var _0x10a976=_0x2f17da;delete _0x18e9b[_0x10a976(0x13f)],delete _0x18e9b[_0x10a976(0xec)],delete _0x18e9b[_0x10a976(0xae)];},_0x477a1f[_0x2f17da(0x19c)]['_setNodeExpressionPath']=function(_0x47ea8d,_0x45ed4a){};let _0x59d224=new _0x477a1f(),_0x409cdb={'props':_0x546a29[_0x2f17da(0x1ae)][_0x2f17da(0x17c)]||0x64,'elements':_0x546a29[_0x2f17da(0x1ae)][_0x2f17da(0x14e)]||0x64,'strLength':_0x546a29[_0x2f17da(0x1ae)][_0x2f17da(0x19b)]||0x400*0x32,'totalStrLength':_0x546a29[_0x2f17da(0x1ae)][_0x2f17da(0x1ad)]||0x400*0x32,'autoExpandLimit':_0x546a29['defaultLimits']['autoExpandLimit']||0x1388,'autoExpandMaxDepth':_0x546a29['defaultLimits'][_0x2f17da(0x186)]||0xa},_0x593125={'props':_0x546a29['reducedLimits']['props']||0x5,'elements':_0x546a29['reducedLimits'][_0x2f17da(0x14e)]||0x5,'strLength':_0x546a29[_0x2f17da(0xf0)]['strLength']||0x100,'totalStrLength':_0x546a29[_0x2f17da(0xf0)][_0x2f17da(0x1ad)]||0x100*0x3,'autoExpandLimit':_0x546a29[_0x2f17da(0xf0)][_0x2f17da(0x162)]||0x1e,'autoExpandMaxDepth':_0x546a29[_0x2f17da(0xf0)][_0x2f17da(0x186)]||0x2};if(_0x12a555){let _0x31799e=_0x59d224[_0x2f17da(0xb8)][_0x2f17da(0x10b)](_0x59d224);_0x59d224[_0x2f17da(0xb8)]=function(_0x5b7794,_0x13f5f9,_0x31df04,_0x1a2b80){return _0x31799e(_0x5b7794,_0x12a555(_0x13f5f9),_0x31df04,_0x1a2b80);};}function _0xcd4ef3(_0x3f7e92,_0x3b4900,_0x47d62e,_0x304dba,_0x24261c,_0x122b53){var _0x1794df=_0x2f17da;let _0x40e848,_0x2d7a07;try{_0x2d7a07=_0x17957c(),_0x40e848=_0xd4991f[_0x3b4900],!_0x40e848||_0x2d7a07-_0x40e848['ts']>_0x24f1d2['perLogpoint']['resetWhenQuietMs']&&_0x40e848[_0x1794df(0x150)]&&_0x40e848['time']/_0x40e848[_0x1794df(0x150)]<_0x24f1d2[_0x1794df(0x10e)][_0x1794df(0x106)]?(_0xd4991f[_0x3b4900]=_0x40e848={'count':0x0,'time':0x0,'ts':_0x2d7a07},_0xd4991f[_0x1794df(0x16f)]={}):_0x2d7a07-_0xd4991f['hits']['ts']>_0x24f1d2['global']['resetWhenQuietMs']&&_0xd4991f[_0x1794df(0x16f)]['count']&&_0xd4991f[_0x1794df(0x16f)][_0x1794df(0x1a9)]/_0xd4991f[_0x1794df(0x16f)][_0x1794df(0x150)]<_0x24f1d2[_0x1794df(0x197)][_0x1794df(0x106)]&&(_0xd4991f['hits']={});let _0x47d2fb=[],_0xf0dd0f=_0x40e848['reduceLimits']||_0xd4991f[_0x1794df(0x16f)][_0x1794df(0x148)]?_0x593125:_0x409cdb,_0xdf51ab=_0x3e49f9=>{var _0x7b787b=_0x1794df;let _0x46afdf={};return _0x46afdf[_0x7b787b(0x17c)]=_0x3e49f9[_0x7b787b(0x17c)],_0x46afdf['elements']=_0x3e49f9[_0x7b787b(0x14e)],_0x46afdf[_0x7b787b(0x19b)]=_0x3e49f9['strLength'],_0x46afdf['totalStrLength']=_0x3e49f9[_0x7b787b(0x1ad)],_0x46afdf[_0x7b787b(0x162)]=_0x3e49f9['autoExpandLimit'],_0x46afdf[_0x7b787b(0x186)]=_0x3e49f9[_0x7b787b(0x186)],_0x46afdf['sortProps']=!0x1,_0x46afdf[_0x7b787b(0xa5)]=!_0x1b3f4a,_0x46afdf['depth']=0x1,_0x46afdf['level']=0x0,_0x46afdf[_0x7b787b(0x161)]='root_exp_id',_0x46afdf[_0x7b787b(0x12f)]='root_exp',_0x46afdf[_0x7b787b(0x115)]=!0x0,_0x46afdf[_0x7b787b(0x157)]=[],_0x46afdf[_0x7b787b(0x199)]=0x0,_0x46afdf[_0x7b787b(0xc0)]=_0x546a29[_0x7b787b(0xc0)],_0x46afdf[_0x7b787b(0xad)]=0x0,_0x46afdf[_0x7b787b(0x11a)]={'current':void 0x0,'parent':void 0x0,'index':0x0},_0x46afdf;};for(var _0x58bafc=0x0;_0x58bafc<_0x24261c[_0x1794df(0x109)];_0x58bafc++)_0x47d2fb[_0x1794df(0x167)](_0x59d224[_0x1794df(0xb8)]({'timeNode':_0x3f7e92===_0x1794df(0x1a9)||void 0x0},_0x24261c[_0x58bafc],_0xdf51ab(_0xf0dd0f),{}));if(_0x3f7e92===_0x1794df(0xd7)||_0x3f7e92===_0x1794df(0x117)){let _0x37a77e=Error[_0x1794df(0x1a4)];try{Error[_0x1794df(0x1a4)]=0x1/0x0,_0x47d2fb[_0x1794df(0x167)](_0x59d224['serialize']({'stackNode':!0x0},new Error()[_0x1794df(0x15a)],_0xdf51ab(_0xf0dd0f),{'strLength':0x1/0x0}));}finally{Error[_0x1794df(0x1a4)]=_0x37a77e;}}return{'method':_0x1794df(0x18f),'version':_0x29e915,'args':[{'ts':_0x47d62e,'session':_0x304dba,'args':_0x47d2fb,'id':_0x3b4900,'context':_0x122b53}]};}catch(_0xc6b404){return{'method':_0x1794df(0x18f),'version':_0x29e915,'args':[{'ts':_0x47d62e,'session':_0x304dba,'args':[{'type':_0x1794df(0xd5),'error':_0xc6b404&&_0xc6b404[_0x1794df(0x163)]}],'id':_0x3b4900,'context':_0x122b53}]};}finally{try{if(_0x40e848&&_0x2d7a07){let _0x5c7a31=_0x17957c();_0x40e848['count']++,_0x40e848[_0x1794df(0x1a9)]+=_0x58a6ca(_0x2d7a07,_0x5c7a31),_0x40e848['ts']=_0x5c7a31,_0xd4991f[_0x1794df(0x16f)][_0x1794df(0x150)]++,_0xd4991f[_0x1794df(0x16f)][_0x1794df(0x1a9)]+=_0x58a6ca(_0x2d7a07,_0x5c7a31),_0xd4991f[_0x1794df(0x16f)]['ts']=_0x5c7a31,(_0x40e848[_0x1794df(0x150)]>_0x24f1d2[_0x1794df(0x10e)][_0x1794df(0xa7)]||_0x40e848[_0x1794df(0x1a9)]>_0x24f1d2[_0x1794df(0x10e)]['reduceOnAccumulatedProcessingTimeMs'])&&(_0x40e848['reduceLimits']=!0x0),(_0xd4991f[_0x1794df(0x16f)][_0x1794df(0x150)]>_0x24f1d2[_0x1794df(0x197)]['reduceOnCount']||_0xd4991f[_0x1794df(0x16f)][_0x1794df(0x1a9)]>_0x24f1d2['global']['reduceOnAccumulatedProcessingTimeMs'])&&(_0xd4991f[_0x1794df(0x16f)]['reduceLimits']=!0x0);}}catch{}}}return _0xcd4ef3;}function G(_0xfb4cef){var _0x25ff01=_0x3dfa8d;if(_0xfb4cef&&typeof _0xfb4cef==_0x25ff01(0xd9)&&_0xfb4cef[_0x25ff01(0x12b)])switch(_0xfb4cef[_0x25ff01(0x12b)][_0x25ff01(0x156)]){case _0x25ff01(0x128):return _0xfb4cef[_0x25ff01(0x116)](Symbol[_0x25ff01(0x189)])?Promise[_0x25ff01(0x143)]():_0xfb4cef;case _0x25ff01(0x151):return Promise['resolve']();}return _0xfb4cef;}((_0x449730,_0x4d92b8,_0x13e745,_0x1897e6,_0x2a8c0e,_0x2ae710,_0xec5887,_0x13b2a0,_0x3a8757,_0x19c342,_0x1b9264,_0x500880)=>{var _0x53d986=_0x3dfa8d;if(_0x449730['_console_ninja'])return _0x449730[_0x53d986(0xaf)];let _0x4670c1={'consoleLog':()=>{},'consoleTrace':()=>{},'consoleTime':()=>{},'consoleTimeEnd':()=>{},'autoLog':()=>{},'autoLogMany':()=>{},'autoTraceMany':()=>{},'coverage':()=>{},'autoTrace':()=>{},'autoTime':()=>{},'autoTimeEnd':()=>{}};if(!X(_0x449730,_0x13b2a0,_0x2a8c0e))return _0x449730[_0x53d986(0xaf)]=_0x4670c1,_0x449730['_console_ninja'];let _0x19377d=b(_0x449730),_0x43d37e=_0x19377d[_0x53d986(0xba)],_0x2d323c=_0x19377d['timeStamp'],_0x5e4cdd=_0x19377d[_0x53d986(0x1ac)],_0xfdcc3c={'hits':{},'ts':{}},_0x416d5b=J(_0x449730,_0x3a8757,_0xfdcc3c,_0x2ae710,_0x500880,_0x2a8c0e===_0x53d986(0xcd)?G:void 0x0),_0x184562=(_0xe677ba,_0x5112f9,_0x5d22b0,_0xb0682c,_0x563885,_0xb65f96)=>{var _0x259ffe=_0x53d986;let _0x158a51=_0x449730[_0x259ffe(0xaf)];try{return _0x449730[_0x259ffe(0xaf)]=_0x4670c1,_0x416d5b(_0xe677ba,_0x5112f9,_0x5d22b0,_0xb0682c,_0x563885,_0xb65f96);}finally{_0x449730['_console_ninja']=_0x158a51;}},_0xe69047=_0x535098=>{_0xfdcc3c['ts'][_0x535098]=_0x2d323c();},_0x36c251=(_0x512ffe,_0x19d618)=>{var _0x25977b=_0x53d986;let _0x210718=_0xfdcc3c['ts'][_0x19d618];if(delete _0xfdcc3c['ts'][_0x19d618],_0x210718){let _0xcf07f6=_0x43d37e(_0x210718,_0x2d323c());_0x4f8495(_0x184562(_0x25977b(0x1a9),_0x512ffe,_0x5e4cdd(),_0x4997ad,[_0xcf07f6],_0x19d618));}},_0x31a3fa=_0x2e3b96=>{var _0x15aaa6=_0x53d986,_0x1b7a37;return _0x2a8c0e===_0x15aaa6(0xcd)&&_0x449730[_0x15aaa6(0x1a1)]&&((_0x1b7a37=_0x2e3b96==null?void 0x0:_0x2e3b96[_0x15aaa6(0x124)])==null?void 0x0:_0x1b7a37[_0x15aaa6(0x109)])&&(_0x2e3b96[_0x15aaa6(0x124)][0x0][_0x15aaa6(0x1a1)]=_0x449730[_0x15aaa6(0x1a1)]),_0x2e3b96;};_0x449730[_0x53d986(0xaf)]={'consoleLog':(_0x2a1f85,_0x468d26)=>{var _0x1867ad=_0x53d986;_0x449730[_0x1867ad(0xfb)]['log'][_0x1867ad(0x156)]!==_0x1867ad(0xc6)&&_0x4f8495(_0x184562(_0x1867ad(0x18f),_0x2a1f85,_0x5e4cdd(),_0x4997ad,_0x468d26));},'consoleTrace':(_0x1a76c8,_0x12b403)=>{var _0x4ce780=_0x53d986,_0x17b6a2,_0x36accc;_0x449730[_0x4ce780(0xfb)][_0x4ce780(0x18f)][_0x4ce780(0x156)]!=='disabledTrace'&&((_0x36accc=(_0x17b6a2=_0x449730[_0x4ce780(0x11e)])==null?void 0x0:_0x17b6a2[_0x4ce780(0xf8)])!=null&&_0x36accc[_0x4ce780(0x11a)]&&(_0x449730[_0x4ce780(0xb1)]=!0x0),_0x4f8495(_0x31a3fa(_0x184562(_0x4ce780(0xd7),_0x1a76c8,_0x5e4cdd(),_0x4997ad,_0x12b403))));},'consoleError':(_0x39c2df,_0x1f8201)=>{var _0x323c58=_0x53d986;_0x449730[_0x323c58(0xb1)]=!0x0,_0x4f8495(_0x31a3fa(_0x184562('error',_0x39c2df,_0x5e4cdd(),_0x4997ad,_0x1f8201)));},'consoleTime':_0x41a2ab=>{_0xe69047(_0x41a2ab);},'consoleTimeEnd':(_0x190952,_0x4a6db1)=>{_0x36c251(_0x4a6db1,_0x190952);},'autoLog':(_0x4645af,_0x2a7d2e)=>{_0x4f8495(_0x184562('log',_0x2a7d2e,_0x5e4cdd(),_0x4997ad,[_0x4645af]));},'autoLogMany':(_0x57be47,_0x5005ed)=>{_0x4f8495(_0x184562('log',_0x57be47,_0x5e4cdd(),_0x4997ad,_0x5005ed));},'autoTrace':(_0x40d3d7,_0x277ce6)=>{var _0x567a69=_0x53d986;_0x4f8495(_0x31a3fa(_0x184562(_0x567a69(0xd7),_0x277ce6,_0x5e4cdd(),_0x4997ad,[_0x40d3d7])));},'autoTraceMany':(_0x36f206,_0x3f195a)=>{var _0x141b8b=_0x53d986;_0x4f8495(_0x31a3fa(_0x184562(_0x141b8b(0xd7),_0x36f206,_0x5e4cdd(),_0x4997ad,_0x3f195a)));},'autoTime':(_0xdbce43,_0x3d49c9,_0x437cbe)=>{_0xe69047(_0x437cbe);},'autoTimeEnd':(_0x398b43,_0x543091,_0x3701b1)=>{_0x36c251(_0x543091,_0x3701b1);},'coverage':_0x4d31f2=>{_0x4f8495({'method':'coverage','version':_0x2ae710,'args':[{'id':_0x4d31f2}]});}};let _0x4f8495=H(_0x449730,_0x4d92b8,_0x13e745,_0x1897e6,_0x2a8c0e,_0x19c342,_0x1b9264),_0x4997ad=_0x449730['_console_ninja_session'];return _0x449730[_0x53d986(0xaf)];})(globalThis,'127.0.0.1',_0x3dfa8d(0x11d),_0x3dfa8d(0xee),_0x3dfa8d(0x19e),_0x3dfa8d(0x11c),_0x3dfa8d(0x144),_0x3dfa8d(0xe6),_0x3dfa8d(0x188),'',_0x3dfa8d(0xd6),{\"resolveGetters\":false,\"defaultLimits\":{\"props\":100,\"elements\":100,\"strLength\":51200,\"totalStrLength\":51200,\"autoExpandLimit\":5000,\"autoExpandMaxDepth\":10},\"reducedLimits\":{\"props\":5,\"elements\":5,\"strLength\":256,\"totalStrLength\":768,\"autoExpandLimit\":30,\"autoExpandMaxDepth\":2},\"reducePolicy\":{\"perLogpoint\":{\"reduceOnCount\":50,\"reduceOnAccumulatedProcessingTimeMs\":100,\"resetWhenQuietMs\":500,\"resetOnProcessingTimeAverageMs\":100},\"global\":{\"reduceOnCount\":1000,\"reduceOnAccumulatedProcessingTimeMs\":300,\"resetWhenQuietMs\":50,\"resetOnProcessingTimeAverageMs\":100}}});");
-    } catch (e) {}
-}
-function oo_oo(i, ...v) {
-    try {
-        oo_cm().consoleLog(i, v);
-    } catch (e) {}
-    return v;
-}
-oo_oo; /* istanbul ignore next */ 
-function oo_tr(i, ...v) {
-    try {
-        oo_cm().consoleTrace(i, v);
-    } catch (e) {}
-    return v;
-}
-oo_tr; /* istanbul ignore next */ 
-function oo_tx(i, ...v) {
-    try {
-        oo_cm().consoleError(i, v);
-    } catch (e) {}
-    return v;
-}
-oo_tx; /* istanbul ignore next */ 
-function oo_ts(v) {
-    try {
-        oo_cm().consoleTime(v);
-    } catch (e) {}
-    return v;
-}
-oo_ts; /* istanbul ignore next */ 
-function oo_te(v, i) {
-    try {
-        oo_cm().consoleTimeEnd(v, i);
-    } catch (e) {}
-    return v;
-}
-oo_te; /*eslint unicorn/no-abusive-eslint-disable:,eslint-comments/disable-enable-pair:,eslint-comments/no-unlimited-disable:,eslint-comments/no-aggregating-enable:,eslint-comments/no-duplicate-disable:,eslint-comments/no-unused-disable:,eslint-comments/no-unused-enable:,*/ 
 }),
 ];
 
