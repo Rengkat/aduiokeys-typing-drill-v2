@@ -6,7 +6,8 @@ export type StageId =
   | "Stage_5"
   | "Stage_6"
   | "Stage_7"
-  | "Stage_8";
+  | "Stage_8"
+  | "Stage_9";
 
 export interface UserProfile {
   username: string;

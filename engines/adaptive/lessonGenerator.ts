@@ -12,10 +12,10 @@ import ngrams from "@/data/ngrams.json";
 import stageConfig from "@/data/stageConfig.json";
 
 // Stage_1-5 are single-key drills (their dictionary files expose a `keys`
-// array, not `words`), Stage_6-7 are real word lists, and Stage_8 is
-// sentences. Pulling the wrong field silently produced `undefined` for
-// Stage_1-4 and no entry at all for Stage_5-8 — fixed by matching each
-// stage's actual JSON shape.
+// array, not `words`), Stage_6-7 are real word lists, Stage_8 is short
+// sentences, and Stage_9 is the longer "advanced"/"paragraphs" pool from
+// the same stage8.json — that data already existed but was never wired to
+// any stage, so those longer sentences never actually appeared in the app.
 const DICTIONARIES: Record<string, string[]> = {
   Stage_1: stage1.keys,
   Stage_2: stage2.keys,
@@ -25,6 +25,7 @@ const DICTIONARIES: Record<string, string[]> = {
   Stage_6: stage6.words,
   Stage_7: stage7.words,
   Stage_8: stage8.sentences.short,
+  Stage_9: stage8.sentences.advanced,
 };
 
 // Which stages mix n-gram fragments into their drills — sourced from

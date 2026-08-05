@@ -55,7 +55,31 @@ function waitForSpeechEnd(maxWaitMs: number): Promise<void> {
  * still fire `speak()` directly via useAudio() instead of this helper.
  */
 export async function speakAndWait(text: string, options?: SpeakOptions): Promise<void> {
-  useAudioStore.getState().speak(text, options);
+  const { speak, screenReaderMode } = useAudioStore.getState();
+  speak(text, options);
+
+  if (screenReaderMode) {
+    // In screen reader mode, useAudioStore.speak() is a deliberate no-op —
+    // narration comes from the aria-live regions instead, read by the
+    // person's own JAWS/NVDA/VoiceOver. That means isSpeaking never flips
+    // true for this utterance, so waitForSpeechEnd below would see "not
+    // speaking" immediately and resolve in ~0ms regardless of how long the
+    // text actually takes a screen reader to read. Callers that chain
+    // several announcements (sentence -> word -> letter, in
+    // announceItemStart) rely on speakAndWait to pace them apart; without
+    // real pacing here, all three fire within milliseconds of each other
+    // and stomp the live region's single high-priority slot before a
+    // screen reader ever gets to read the earlier ones — which is exactly
+    // why only the last announcement (usually the letter) was ever heard,
+    // with full words and sentences going silent. Estimate a reading
+    // duration instead, matching the same formula the live-region drain
+    // queue uses, so this promise doesn't resolve until a screen reader
+    // would plausibly have finished.
+    const estimatedMs = Math.max(900, text.length * 90);
+    await new Promise((r) => setTimeout(r, estimatedMs));
+    return;
+  }
+
   // Brief grace period so we don't sample isSpeaking before the store has
   // had a chance to flip it true for this utterance.
   await new Promise((r) => setTimeout(r, 50));

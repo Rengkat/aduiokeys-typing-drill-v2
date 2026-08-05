@@ -31,8 +31,8 @@ export function calculateFluencyScore(
 /**
  * Overall (cross-stage) score weights later stages more heavily — harder
  * content earns more points per correct word, per the functionality doc.
- * `stageMultipliers` defaults to Stage_1..Stage_8 -> 1.0..2.75, continuing
- * the same +0.25-per-stage progression across all 8 stages (previously
+ * `stageMultipliers` defaults to Stage_1..Stage_9 -> 1.0..3.0, continuing
+ * the same +0.25-per-stage progression across all 9 stages (previously
  * only Stage_1-4 were defined, so Stage_5-8 silently fell back to the
  * `?? 1` default below and were scored as if no harder than Stage_1).
  */
@@ -45,6 +45,7 @@ const DEFAULT_STAGE_MULTIPLIERS: Record<string, number> = {
   Stage_6: 2.25,
   Stage_7: 2.5,
   Stage_8: 2.75,
+  Stage_9: 3.0,
 };
 
 export function calculateOverallFluencyScore(

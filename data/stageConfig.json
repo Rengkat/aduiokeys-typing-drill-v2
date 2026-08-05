@@ -97,6 +97,17 @@
       "targetAccuracy": 88,
       "description": "Short sentences first, building up to full paragraphs, forms, and code \u2014 real-world typing.",
       "celebration": "You're a fluent typist. Every stage you climbed brought you here."
+    },
+    {
+      "id": "Stage_9",
+      "order": 9,
+      "title": "Long-Form Paragraphs",
+      "mode": "sentences",
+      "metric": "wpm",
+      "targetValue": 18,
+      "targetAccuracy": 88,
+      "description": "Full-length paragraph sentences \u2014 the advanced/long-form pool that Stage 8 never actually surfaced. Real sustained typing, not just short bursts.",
+      "celebration": "Long-form paragraphs, start to finish \u2014 that's the whole curriculum. You're a fluent typist."
     }
   ]
 }

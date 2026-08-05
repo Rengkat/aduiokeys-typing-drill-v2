@@ -15,6 +15,7 @@ import {
   Type,
   Quote,
   BookOpen,
+  Library,
   X,
 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
@@ -30,6 +31,7 @@ const STAGE_ROUTE: Record<string, string> = {
   Stage_6: "6",
   Stage_7: "7",
   Stage_8: "8",
+  Stage_9: "9",
 };
 
 const STAGE_ORDER = [
@@ -41,6 +43,7 @@ const STAGE_ORDER = [
   "Stage_6",
   "Stage_7",
   "Stage_8",
+  "Stage_9",
 ];
 
 export default function HomePage() {
@@ -235,6 +238,8 @@ export default function HomePage() {
         return <Quote {...props} />;
       case "Stage_8":
         return <BookOpen {...props} />;
+      case "Stage_9":
+        return <Library {...props} />;
       default:
         return <Sparkles {...props} />;
     }

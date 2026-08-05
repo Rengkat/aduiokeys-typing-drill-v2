@@ -27,7 +27,7 @@ import { computeFingerHealthIndex } from "@/engines/adaptive/fingerHealthIndex";
 import { STAGE_CONFIG, STAGE_ID_TO_ROUTE, type StageRouteId } from "@/engines/stage/stageConfig";
 import type { SessionMetrics, WeakKeyPair, FingerHealthIndex } from "@/types/metrics";
 
-const STAGE_ROUTES: StageRouteId[] = ["1", "2", "3", "4", "5", "6", "7", "8"];
+const STAGE_ROUTES: StageRouteId[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 export default function ResultsPage() {
   const router = useRouter();

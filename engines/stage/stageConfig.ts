@@ -1,14 +1,14 @@
 // engines/stage/stageConfig.ts
 import type { LucideIcon } from "lucide-react";
-import { Sparkles, Star, Target, Trophy, Hash, Type, Quote, BookOpen } from "lucide-react";
+import { Sparkles, Star, Target, Trophy, Hash, Type, Quote, BookOpen, Library } from "lucide-react";
 import type { StageId } from "@/types/profile";
 import type { WeakKeyPair, SpacedRepetitionItem } from "@/types/metrics";
 import { generateLesson } from "@/engines/adaptive/lessonGenerator";
 import rawStageConfig from "@/data/stageConfig.json";
 
-export type StageRouteId = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8";
+export type StageRouteId = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
 
-/** Route segment ("1".."8") <-> profile-level StageId ("Stage_1".."Stage_8"). */
+/** Route segment ("1".."9") <-> profile-level StageId ("Stage_1".."Stage_9"). */
 export const STAGE_ROUTE_TO_ID: Record<StageRouteId, StageId> = {
   "1": "Stage_1",
   "2": "Stage_2",
@@ -18,6 +18,7 @@ export const STAGE_ROUTE_TO_ID: Record<StageRouteId, StageId> = {
   "6": "Stage_6",
   "7": "Stage_7",
   "8": "Stage_8",
+  "9": "Stage_9",
 };
 
 export const STAGE_ID_TO_ROUTE: Record<StageId, StageRouteId> = {
@@ -29,6 +30,7 @@ export const STAGE_ID_TO_ROUTE: Record<StageId, StageRouteId> = {
   Stage_6: "6",
   Stage_7: "7",
   Stage_8: "8",
+  Stage_9: "9",
 };
 
 const STAGE_ICONS: Record<StageRouteId, LucideIcon> = {
@@ -40,6 +42,7 @@ const STAGE_ICONS: Record<StageRouteId, LucideIcon> = {
   "6": Type,
   "7": Quote,
   "8": BookOpen,
+  "9": Library,
 };
 
 // Session length climbs with stage difficulty. This is a pacing/UI decision,
@@ -59,6 +62,7 @@ const STAGE_DURATIONS: Record<StageRouteId, number> = {
   "6": 120,
   "7": 135,
   "8": 150,
+  "9": 180,
 };
 
 export interface StageConfig {

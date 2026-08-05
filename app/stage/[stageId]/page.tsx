@@ -59,6 +59,7 @@ const STAGE_COLORS: Record<string, string> = {
   "6": "from-cyan-500 to-cyan-400",
   "7": "from-amber-500 to-amber-400",
   "8": "from-red-500 to-red-400",
+  "9": "from-indigo-500 to-indigo-400",
 };
 
 export default function StagePage({ params }: StagePageProps) {
@@ -118,6 +119,14 @@ export default function StagePage({ params }: StagePageProps) {
   // Guards finishSession() against firing more than once when timeLeft
   // hits 0 — see the timer side-effects useEffect below.
   const sessionEndedRef = useRef(false);
+  // Cached from the initial mount fetch below so handleRestart can rebuild
+  // a fresh, freshly-shuffled queue synchronously without an extra async
+  // round-trip, while still respecting the same adaptive weak-key/due-item
+  // targeting as the original queue.
+  const adaptiveDataRef = useRef<{
+    weakKeyPairs: Awaited<ReturnType<typeof getWeakKeyPairs>>;
+    dueItems: Awaited<ReturnType<typeof getDueSpacedRepetitionItems>>;
+  }>({ weakKeyPairs: [], dueItems: [] });
   const wordCompleteCount = useRef(0);
 
   // --- Stale-closure guards ------------------------------------------
@@ -191,37 +200,89 @@ export default function StagePage({ params }: StagePageProps) {
   // our own speechSynthesis never actually speaks in that mode (see
   // useAudioStore.speak), so the app has no way to know when JAWS/NVDA/
   // VoiceOver has actually finished reading the last thing it announced.
-  // Without this queue, an encouragement fired right as the next letter
-  // starts (e.g. every 3rd word) would call setLiveMessageForced twice
-  // within milliseconds of each other; a real screen reader mid-utterance
-  // on the first update gets its speech cut off/dropped by the second and
-  // goes silent — exactly the "stops after the encouragement, blind
-  // student gets stuck" symptom. This serializes every live-region update
-  // behind a promise chain and, in screen reader mode only, waits out a
-  // rough estimate of how long that text would take a screen reader to
-  // read before letting the next one in — the same estimate already used
-  // to pace the app's own voice. In app-voice mode this is a no-op pass
-  // through to setLiveMessageForced with no added delay, since that path
-  // already works correctly (paced by the browser's real speechSynthesis
-  // engine instead).
-  const liveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const queueLiveMessage = useCallback(
-    (text: string) => {
-      liveQueueRef.current = liveQueueRef.current.then(async () => {
-        setLiveMessageForced(text);
+  //
+  // Two priority tiers, mirroring the "high"/background split the audio
+  // store already uses for the app's own voice:
+  //  - "high" (word/letter/sentence progression): a single slot that the
+  //    newest call always overwrites. If the student types faster than a
+  //    screen reader can talk, older, now-stale letter prompts are simply
+  //    dropped in favor of whatever's actually current — never a growing
+  //    backlog of already-typed letters the student has to sit through
+  //    before hearing the next sentence. This is exactly what made typing
+  //    fast work fine with the app's own voice already (its `speak()` has
+  //    the same single-slot behavior for high-priority items); the live
+  //    region needed the same design, not a plain FIFO.
+  //  - "low"/default (encouragement, corrections, status messages): a
+  //    normal FIFO queue that only plays once the high-priority slot is
+  //    empty, so it can never step in front of core content — see the
+  //    setTimeout-deferred encouragement call in handleWordComplete,
+  //    which relies on exactly this to never block the next letter.
+  const liveHighPriorityRef = useRef<string | null>(null);
+  const liveBackgroundQueueRef = useRef<string[]>([]);
+  const liveDrainingRef = useRef(false);
+
+  const drainLiveQueue = useCallback(async () => {
+    if (liveDrainingRef.current) return;
+    liveDrainingRef.current = true;
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let next: string | undefined;
+        if (liveHighPriorityRef.current !== null) {
+          next = liveHighPriorityRef.current;
+          liveHighPriorityRef.current = null;
+        } else {
+          next = liveBackgroundQueueRef.current.shift();
+        }
+        if (next === undefined) break;
+
+        setLiveMessageForced(next);
         if (screenReaderMode) {
-          const estimatedMs = Math.max(900, text.length * 90);
+          const estimatedMs = Math.max(900, next.length * 90);
           await new Promise((r) => setTimeout(r, estimatedMs));
         }
-      });
+      }
+    } finally {
+      liveDrainingRef.current = false;
+    }
+  }, [setLiveMessageForced, screenReaderMode]);
+
+  const queueLiveMessage = useCallback(
+    (text: string, priority: "high" | "low" = "low") => {
+      if (priority === "high") {
+        liveHighPriorityRef.current = text;
+      } else {
+        liveBackgroundQueueRef.current.push(text);
+      }
+      drainLiveQueue();
     },
-    [setLiveMessageForced, screenReaderMode],
+    [drainLiveQueue],
   );
 
   const announce = (text: string, options?: Parameters<typeof speak>[1]) => {
-    queueLiveMessage(text);
+    queueLiveMessage(text, options?.priority === "high" ? "high" : "low");
     speak(text, options);
   };
+
+  // Same idea as announce() above, but for the sequential, *awaited*
+  // announcement chains (mount, restart) where each step genuinely needs
+  // to finish — for a real screen reader as well as the app's own voice —
+  // before the next one starts. Plain speakAndWait() only reaches the
+  // app's own voice; the aria-live region is a separate channel that needs
+  // its own explicit update, or a screen reader user hears nothing for
+  // that step. That's exactly what was happening to the "Welcome to
+  // Stage..."/"N items to practice" lines at mount and "Practice
+  // restarted." on restart: they used bare speakAndWait, so screen reader
+  // users never heard the stage's expectations at all — the first thing
+  // their AT announced was the first word/letter from announceItemStart,
+  // which *does* go through this same pairing.
+  const announceAndWait = useCallback(
+    async (text: string, options?: Parameters<typeof speak>[1]) => {
+      queueLiveMessage(text, options?.priority === "high" ? "high" : "low");
+      await speakAndWait(text, options);
+    },
+    [queueLiveMessage],
+  );
 
   // Redirect if an unknown stage id slipped through — done in an effect,
   // not during render, since router.push is a side effect.
@@ -313,13 +374,11 @@ export default function StagePage({ params }: StagePageProps) {
     try {
       if (item.sentenceIntro) {
         setCurrentSentenceText(item.sentenceIntro);
-        queueLiveMessage(item.sentenceIntro);
-        await speakAndWait(item.sentenceIntro, { priority: "high" });
+        await announceAndWait(item.sentenceIntro, { priority: "high" });
         if (speechTokenRef.current !== token) return;
       }
 
-      queueLiveMessage(speakableWord(item.word));
-      await speakAndWait(speakableWord(item.word), { priority: "high" });
+      await announceAndWait(speakableWord(item.word), { priority: "high" });
       if (speechTokenRef.current !== token) return;
     } finally {
       // Resolve even on early return/abandonment, or any waiting letter
@@ -330,11 +389,10 @@ export default function StagePage({ params }: StagePageProps) {
     if (item.word.length > 1) {
       const firstLetter = item.word[0];
       if (firstLetter) {
-        queueLiveMessage(speakableChar(firstLetter));
-        await speakAndWait(speakableChar(firstLetter), { priority: "high" });
+        await announceAndWait(speakableChar(firstLetter), { priority: "high" });
       }
     }
-  }, [setLiveMessageForced, queueLiveMessage]);
+  }, [announceAndWait]);
 
   // Fetch the student's weak keys + due spaced-repetition items, build the
   // real lesson queue from them, then kick off the mount announcement chain.
@@ -356,6 +414,7 @@ export default function StagePage({ params }: StagePageProps) {
       }
       if (cancelled) return;
 
+      adaptiveDataRef.current = { weakKeyPairs, dueItems };
       const queue = buildWordQueue(stage, {
         weakKeyPairs,
         dueSpacedRepetitionItems: dueItems,
@@ -381,11 +440,14 @@ export default function StagePage({ params }: StagePageProps) {
       focusWhenMounted();
       const token = ++speechTokenRef.current;
 
-      await speakAndWait(`Welcome to ${stage.title}. ${stage.description}.`, { priority: "high" });
+      await announceAndWait(`Welcome to ${stage.title}. ${stage.description}.`, {
+        priority: "high",
+      });
       if (speechTokenRef.current !== token || cancelled) return;
 
-      await speakAndWait(
+      await announceAndWait(
         `${queue.length} ${queue.length === 1 ? "item" : "items"} to practice. Press Escape any time to pause.`,
+        { priority: "high" },
       );
       if (speechTokenRef.current !== token || cancelled) return;
 
@@ -441,8 +503,7 @@ export default function StagePage({ params }: StagePageProps) {
       // easily-confused "m"/"n" letter names came from — that's the screen
       // reader's own TTS engine, not this app's, so this JSON mapping is
       // the only lever we have over it.
-      queueLiveMessage(speakableChar(letter));
-      await speakAndWait(speakableChar(letter), { priority: "high" });
+      await announceAndWait(speakableChar(letter), { priority: "high" });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCharIndex]);
@@ -816,12 +877,30 @@ export default function StagePage({ params }: StagePageProps) {
     if (wordIndex < totalWords - 1) {
       wordCompleteCount.current += 1;
       const nextWordIndex = wordIndex + 1;
+      const completedItem = wordQueue[wordIndex];
+      const nextItem = wordQueue[nextWordIndex];
+
+      // Sentence-mode stages read one word at a time through the same
+      // word queue every stage uses, but a real sentence has a space
+      // between every pair of words — silently skipping that jumped
+      // straight from one word's pronunciation to the next with no cue
+      // that a word boundary (and the space bar itself) belongs there.
+      // Only announce it between two words of the SAME sentence — the
+      // first word of a new sentence already gets its sentenceIntro read
+      // in full, and "Spacebar" isn't the meaningful transition there.
+      const announceSpace =
+        completedItem?.sentenceIndex !== undefined && nextItem?.sentenceIndex === completedItem.sentenceIndex;
+
       currentWordIndexRef.current = nextWordIndex;
       setCurrentWordIndex(nextWordIndex);
       setCurrentCharIndex(0);
       currentCharIndexRef.current = 0;
       setInputValue("");
       playSound("select");
+
+      if (announceSpace) {
+        announce(speakableChar(" "), { priority: "high" });
+      }
 
       // Light, varied positive reinforcement every 3rd word — enough to
       // feel encouraging without talking over every single word transition.
@@ -855,6 +934,21 @@ export default function StagePage({ params }: StagePageProps) {
     cancelSpeech();
     suppressNextWordAnnounceRef.current = true;
 
+    // Rebuild the queue with a fresh shuffle instead of reusing the one
+    // from initial mount — this was the actual "restart gives the exact
+    // same task" bug. Resetting currentWordIndex to 0 below always looked
+    // like a restart, but it was just rewinding back to position 0 of the
+    // *same* array every time, so it replayed identically. buildWordQueue
+    // (and generateLesson underneath it) re-shuffles on every call, so a
+    // fresh call here is all that's needed for real variety — same
+    // adaptive weak-key/due-item targeting as the original queue, cached
+    // in adaptiveDataRef from the mount fetch, just a new random draw/order.
+    const freshQueue = buildWordQueue(stage, {
+      weakKeyPairs: adaptiveDataRef.current.weakKeyPairs,
+      dueSpacedRepetitionItems: adaptiveDataRef.current.dueItems,
+    });
+    setWordQueue(freshQueue);
+
     setCurrentWordIndex(0);
     currentWordIndexRef.current = 0;
     setCurrentCharIndex(0);
@@ -876,7 +970,8 @@ export default function StagePage({ params }: StagePageProps) {
     lastCompletedWordIndexRef.current = -1;
     announcedTimeWarnings.current.clear();
     sessionEndedRef.current = false;
-    liveQueueRef.current = Promise.resolve();
+    liveHighPriorityRef.current = null;
+    liveBackgroundQueueRef.current = [];
     wordCompleteCount.current = 0;
 
     // BUG: calling focus() here synchronously used to be a silent no-op.
@@ -892,9 +987,12 @@ export default function StagePage({ params }: StagePageProps) {
 
     const token = speechTokenRef.current;
     (async () => {
-      await speakAndWait("Practice restarted.", { priority: "high" });
+      await announceAndWait("Practice restarted.", { priority: "high" });
       if (speechTokenRef.current !== token) return;
-      const first = wordQueue[0];
+      // freshQueue, not the (stale, closure-captured) wordQueue state —
+      // setWordQueue above hasn't committed yet at this point in the
+      // function, so wordQueue here would still be last session's array.
+      const first = freshQueue[0];
       if (first) await announceItemStart(first, token);
     })();
   };
