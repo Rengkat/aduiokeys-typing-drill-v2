@@ -21,6 +21,7 @@ import {
 import { useProfile } from "@/hooks/useProfile";
 import { useAudio } from "@/hooks/useAudioEngine";
 import { playLongFormTrack } from "@/engines/audio/longFormTracks";
+import { speakAndWait } from "@/engines/audio/speechSequencer";
 
 const STAGE_ROUTE: Record<string, string> = {
   Stage_1: "1",
@@ -46,6 +47,20 @@ const STAGE_ORDER = [
   "Stage_9",
 ];
 
+// Every keyboard command available on the home page, spoken in full right
+// after the welcome greeting — before the student does anything else — so
+// a blind student never has to hunt around to discover what's available.
+// Mirrors the pattern used for SHORTCUT_HELP on the stage page, and is
+// kept as a single source of truth so it can't drift from the on-screen
+// ShortcutBar legend.
+const buildHomeShortcutHelp = (hasProfile: boolean) =>
+  "Keyboard commands: " +
+  (hasProfile ? "Control Shift C to continue practice. " : "") +
+  "Control Shift R to view your progress report. " +
+  "Control Shift L to open the leaderboard. " +
+  (hasProfile ? "Control Shift N to create a new profile. " : "") +
+  "Tab to move between buttons, and Enter or Space to activate the one you're on.";
+
 export default function HomePage() {
   const [username, setUsername] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +77,17 @@ export default function HomePage() {
   const announce = (text: string, options?: Parameters<typeof speak>[1]) => {
     setLiveMessage(text);
     speak(text, options);
+  };
+
+  // Same idea as announce() above, but for sequential, *awaited* chains
+  // (welcome greeting -> keyboard commands) where each step genuinely
+  // needs to finish — for a real screen reader as well as the app's own
+  // voice — before the next one starts. Without this, the shortcuts
+  // announcement could fire on top of (or before) the welcome greeting,
+  // or the student could start tabbing around before either has finished.
+  const announceAndWait = async (text: string, options?: Parameters<typeof speak>[1]) => {
+    setLiveMessage(text);
+    await speakAndWait(text, options);
   };
 
   const hoverTick = () => playSound("hover");
@@ -85,26 +111,49 @@ export default function HomePage() {
 
       (async () => {
         await playLongFormTrack("welcome");
-        announce(
+        // Keyboard commands are announced immediately after the greeting —
+        // before the student has any chance to start tabbing/navigating —
+        // not left to the silent, visual-only ShortcutBar at the bottom.
+        await announceAndWait(
           `Welcome, ${currentProfile.username}! You're on ${stageLabel}, targeting ${currentProfile.wpmTarget} words per minute. ${fluency}`,
           { priority: "high" },
         );
+        await announceAndWait(buildHomeShortcutHelp(true), { priority: "high" });
       })();
     } else if (profiles.length === 0) {
       setHasWelcomed(true);
       (async () => {
         await playLongFormTrack("welcome");
-        announce(
+        await announceAndWait(
           "Welcome to AudioKeys! Let's create your first profile and start learning to type by ear.",
+          { priority: "high" },
+        );
+        await announceAndWait(
+          "Type your username into the field and press Enter to continue.",
           { priority: "high" },
         );
       })();
     } else if (profiles.length > 0 && !currentProfile) {
       setHasWelcomed(true);
       playSound("whoosh");
-      announce("Welcome back! Please select your profile to continue.", { priority: "high" });
+      (async () => {
+        await announceAndWait("Welcome back! Please select your profile to continue.", {
+          priority: "high",
+        });
+        await announceAndWait(buildHomeShortcutHelp(false), { priority: "high" });
+      })();
     }
   }, [currentProfile, profiles.length, hasWelcomed, hydrated]);
+
+  const handleContinuePractice = () => {
+    if (!currentProfile) return;
+    playSound("whoosh");
+    const stagePath = STAGE_ROUTE[currentProfile.level] ?? "1";
+    announce(`Continuing ${currentProfile.level.replace("_", " ")} practice.`, {
+      priority: "high",
+    });
+    router.push(`/stage/${stagePath}`);
+  };
 
   useEffect(() => {
     if (!hydrated) return;
@@ -120,7 +169,10 @@ export default function HomePage() {
 
       if (!e.ctrlKey || !e.shiftKey) return;
 
-      if (e.key.toLowerCase() === "r") {
+      if (e.key.toLowerCase() === "c" && currentProfile) {
+        e.preventDefault();
+        handleContinuePractice();
+      } else if (e.key.toLowerCase() === "r") {
         e.preventDefault();
         if (currentProfile) {
           playSound("whoosh");
@@ -143,7 +195,7 @@ export default function HomePage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [router, currentProfile, hydrated, showCreateProfile]);
+  }, [router, currentProfile, hydrated, showCreateProfile, handleContinuePractice]);
 
   useEffect(() => {
     if (showCreateProfile) {
@@ -162,13 +214,20 @@ export default function HomePage() {
     const isFirstEverProfile = profiles.length === 0;
     setIsLoading(true);
     try {
-      await createProfile(username.trim());
+      const createdUsername = username.trim();
+      await createProfile(createdUsername);
       playSound(isFirstEverProfile ? "welcome" : "success");
-      announce(`Welcome, ${username.trim()}! Your typing journey begins now.`, {
-        priority: "high",
-      });
       setUsername("");
       setShowCreateProfile(false);
+      // Greeting first, then the keyboard commands — announced before the
+      // student has a chance to start navigating, same as every other
+      // "arriving on the home page" moment.
+      (async () => {
+        await announceAndWait(`Welcome, ${createdUsername}! Your typing journey begins now.`, {
+          priority: "high",
+        });
+        await announceAndWait(buildHomeShortcutHelp(true), { priority: "high" });
+      })();
     } catch {
       announce("There was an error creating your profile. Please try again.", {
         priority: "high",
@@ -182,17 +241,10 @@ export default function HomePage() {
   const handleProfileSelect = (profileName: string) => {
     switchProfile(profileName);
     playSound("select");
-    announce(`Switched to ${profileName}.`, { priority: "high" });
-  };
-
-  const handleContinuePractice = () => {
-    if (!currentProfile) return;
-    playSound("whoosh");
-    const stagePath = STAGE_ROUTE[currentProfile.level] ?? "1";
-    announce(`Continuing ${currentProfile.level.replace("_", " ")} practice.`, {
-      priority: "high",
-    });
-    router.push(`/stage/${stagePath}`);
+    (async () => {
+      await announceAndWait(`Switched to ${profileName}.`, { priority: "high" });
+      await announceAndWait(buildHomeShortcutHelp(true), { priority: "high" });
+    })();
   };
 
   const handleViewProgress = () => {
@@ -428,6 +480,16 @@ export default function HomePage() {
   const ShortcutBar = (
     <div className="shrink-0 text-center text-xs text-text-muted pt-3 border-t border-white/10">
       <div className="flex flex-wrap justify-center items-center gap-4 md:gap-6">
+        {currentProfile && (
+          <span className="flex items-center gap-2">
+            <kbd className="px-2 py-0.5 bg-white/10 rounded text-text font-mono text-xs border border-white/10 shadow-inner">
+              Ctrl+Shift+C
+            </kbd>
+            <span className="flex items-center gap-1">
+              <Keyboard className="w-3.5 h-3.5 text-accent" /> Continue Practice
+            </span>
+          </span>
+        )}
         <span className="flex items-center gap-2">
           <kbd className="px-2 py-0.5 bg-white/10 rounded text-text font-mono text-xs border border-white/10 shadow-inner">
             Ctrl+Shift+R
@@ -465,7 +527,7 @@ export default function HomePage() {
     const stageIndex = STAGE_ORDER.indexOf(currentProfile.level);
 
     return (
-      <div className="h-dvh w-full overflow-hidden flex flex-col p-4 md:p-6 gap-3 md:gap-4 bg-dark">
+      <div className="min-h-dvh w-full flex flex-col p-4 md:p-6 gap-3 md:gap-4 bg-dark">
         {LiveRegion}
         {CreateProfileDialog}
 
@@ -666,7 +728,7 @@ export default function HomePage() {
   // NO ACTIVE PROFILE — onboarding/selection
   // ============================================
   return (
-    <div className="h-dvh w-full overflow-hidden flex flex-col items-center justify-center p-4 md:p-6 bg-dark">
+    <div className="min-h-dvh w-full flex flex-col items-center justify-center p-4 md:p-6 bg-dark">
       {LiveRegion}
       {CreateProfileDialog}
 

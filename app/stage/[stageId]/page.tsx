@@ -48,7 +48,27 @@ interface StagePageProps {
   params: Promise<{ stageId: string }>;
 }
 
-const ENCOURAGEMENTS = ["Nice!", "Great!", "Keep going!", "Well done!", "You've got it!"];
+// Mid-session encouragement ("Nice!", "Great!"...) was deliberately removed.
+// For screen reader users especially, an aside firing every few words
+// competes with the live region that's carrying the actual next
+// letter/word — it's noise breaking concentration, not motivation. The
+// student now hears their real outcome (speed, accuracy, whether they
+// leveled up) once, at the end of the session in finishSession() below,
+// which is the moment that feedback actually matters.
+
+// Every keyboard command available in the stage, spoken in full before a
+// session starts (and replayable any time via F1) so a blind student never
+// has to tab/click around to discover what's available. Kept as a single
+// source of truth so the spoken instructions and the on-screen legend can
+// never drift out of sync with each other.
+const SHORTCUT_HELP =
+  "Keyboard commands: type the letters you hear to begin — no separate start key needed. " +
+  "Press Escape any time to pause or resume. " +
+  "Press F1 to hear these commands again. " +
+  "Press F2 to repeat the current word. " +
+  "Press F3 to restart the stage. " +
+  "Press F4 to go back home. " +
+  "When a session ends, press Enter for the main next step, N to continue or practice again, R to restart, or H to go home.";
 
 const STAGE_COLORS: Record<string, string> = {
   "1": "from-emerald-500 to-emerald-400",
@@ -228,16 +248,37 @@ export default function StagePage({ params }: StagePageProps) {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         let next: string | undefined;
+        let wasHighPriority = false;
         if (liveHighPriorityRef.current !== null) {
           next = liveHighPriorityRef.current;
           liveHighPriorityRef.current = null;
+          wasHighPriority = true;
         } else {
           next = liveBackgroundQueueRef.current.shift();
         }
         if (next === undefined) break;
 
         setLiveMessageForced(next);
-        if (screenReaderMode) {
+
+        // BUG FIX: high-priority items (word/letter/sentence progression)
+        // are always driven by an external *awaited* chain —
+        // announceItemStart awaits announceAndWait, which awaits
+        // speakAndWait, which already pauses for this same estimated
+        // reading duration before the caller is allowed to queue the
+        // *next* high-priority item. This loop used to also pause here,
+        // independently, for that same duration — two separate timers,
+        // started at slightly different moments, racing to decide when
+        // the "next" announcement was allowed to land. Whichever timer
+        // fired first won: sometimes this loop moved on (or exited
+        // entirely, since the while loop breaks when nothing is queued)
+        // a beat before speakAndWait's own timer resolved and the caller
+        // queued the real next item, silently dropping a step out of
+        // "sentence -> word -> letter" for a screen reader user — exactly
+        // the "sentences aren't being read" symptom. Only the low-priority
+        // background queue (corrections, status asides) still needs its
+        // own pacing here, since nothing external awaits those; the
+        // high-priority slot is fully paced by its caller instead.
+        if (screenReaderMode && !wasHighPriority) {
           const estimatedMs = Math.max(900, next.length * 90);
           await new Promise((r) => setTimeout(r, estimatedMs));
         }
@@ -445,8 +486,14 @@ export default function StagePage({ params }: StagePageProps) {
       });
       if (speechTokenRef.current !== token || cancelled) return;
 
+      // Every command up front, right after the welcome — not buried after
+      // the item count — so a student knows everything available to them
+      // before anything else. Replayable any time via F1.
+      await announceAndWait(SHORTCUT_HELP, { priority: "high" });
+      if (speechTokenRef.current !== token || cancelled) return;
+
       await announceAndWait(
-        `${queue.length} ${queue.length === 1 ? "item" : "items"} to practice. Press Escape any time to pause.`,
+        `${queue.length} ${queue.length === 1 ? "item" : "items"} to practice.`,
         { priority: "high" },
       );
       if (speechTokenRef.current !== token || cancelled) return;
@@ -696,9 +743,11 @@ export default function StagePage({ params }: StagePageProps) {
 
             const track = pickCelebrationTrack();
             await playLongFormTrack(track);
-            announce(`${stage.celebration} Congratulations! You are moving to ${nextTitle}.`, {
-              priority: "high",
-            });
+            announce(
+              `${stage.celebration} Congratulations! You are moving to ${nextTitle}. ` +
+                `Press Enter or N to start it now, R to practice this stage again, or H to go home.`,
+              { priority: "high" },
+            );
             return; // skip the generic session-complete announcement below
           }
 
@@ -709,7 +758,8 @@ export default function StagePage({ params }: StagePageProps) {
           const track = pickCelebrationTrack();
           await playLongFormTrack(track);
           announce(
-            `${stage.celebration} Congratulations, ${currentProfile.username}! You've completed every stage of AudioKeys.`,
+            `${stage.celebration} Congratulations, ${currentProfile.username}! You've completed every stage of AudioKeys. ` +
+              `Press Enter, N, or R to practice again, or H to go home.`,
             { priority: "high" },
           );
           return;
@@ -725,11 +775,12 @@ export default function StagePage({ params }: StagePageProps) {
         // silence.
         setSessionComplete(true);
         announce(
-          eligibleToLevelUp
+          (eligibleToLevelUp
             ? `Session complete! You typed ${finalSpeed} ${speedLabel} with ${finalAccuracy} percent accuracy.`
             : `Time's up. You typed ${finalSpeed} ${speedLabel} with ${finalAccuracy} percent accuracy. ` +
-                `That's below this stage's target of ${stage.levelUpTarget} ${speedLabel} at ${stage.levelUpAccuracy} percent accuracy, ` +
-                `so let's try this stage again.`,
+              `That's below this stage's target of ${stage.levelUpTarget} ${speedLabel} at ${stage.levelUpAccuracy} percent accuracy, ` +
+              `so let's try this stage again.`) +
+            ` Press Enter, N, or R to practice again, or H to go home.`,
           { priority: "high" },
         );
         playSound("levelup");
@@ -740,6 +791,14 @@ export default function StagePage({ params }: StagePageProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (sessionComplete || !queueReady) return;
 
+    // Every shortcut below deliberately lives on a key that can never be a
+    // legitimate typing target (function keys, Escape) — F, J, S, N, R, H
+    // etc. are all real letters this curriculum drills, so binding a
+    // command to any of them here would silently eat a keystroke a student
+    // is actually trying to type. Letter-mnemonic shortcuts (N/R/H) only
+    // exist on the session-complete screen below, where the typing input
+    // is disabled and no drill letters are in flight.
+
     // Escape pauses/resumes.
     if (e.key === "Escape") {
       e.preventDefault();
@@ -747,10 +806,32 @@ export default function StagePage({ params }: StagePageProps) {
       return;
     }
 
+    // F1 replays every available keyboard command, any time.
+    if (e.key === "F1") {
+      e.preventDefault();
+      announce(SHORTCUT_HELP, { priority: "high" });
+      return;
+    }
+
     // F2 repeats the current word on demand
     if (e.key === "F2") {
       e.preventDefault();
       announce(`Current word: ${speakableWord(currentWord)}.`, { priority: "high" });
+      return;
+    }
+
+    // F3 restarts the stage without needing to tab to the Restart button.
+    if (e.key === "F3") {
+      e.preventDefault();
+      handleRestart();
+      return;
+    }
+
+    // F4 leaves the stage and returns home without needing to tab to the
+    // Back to Home button.
+    if (e.key === "F4") {
+      e.preventDefault();
+      router.push("/");
       return;
     }
 
@@ -902,27 +983,10 @@ export default function StagePage({ params }: StagePageProps) {
         announce(speakableChar(" "), { priority: "high" });
       }
 
-      // Light, varied positive reinforcement every 3rd word — enough to
-      // feel encouraging without talking over every single word transition.
-      //
-      // This fires synchronously, right here, in the same tick as
-      // setCurrentWordIndex above. But the *next* word's own announcement
-      // doesn't happen here — it happens moments later, in the
-      // currentWordIndex useEffect, once React has committed this state
-      // update. That effect's speak() call is the one that actually
-      // matters and should win the speech engine every time. Calling
-      // announce(phrase) immediately, right now, used to grab the idle
-      // speech slot first (nothing else is speaking at the instant a word
-      // completes) and forced the next word's own pronunciation to queue
-      // up and wait behind "Nice!"/"Great!" instead of the other way
-      // around — the exact "affirmation delays the next word" bug.
-      // Deferring past that effect lets the next word claim the slot
-      // first; the encouragement then correctly falls in right after it,
-      // as a trailing aside, never blocking it.
-      if (wordCompleteCount.current % 3 === 0) {
-        const phrase = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
-        setTimeout(() => announce(phrase), 50);
-      }
+      // No per-word encouragement here by design — see the comment on
+      // SHORTCUT_HELP/removed ENCOURAGEMENTS above. The student's outcome
+      // is announced once, in full, when the session actually ends
+      // (finishSession below), not scattered as asides mid-drill.
     } else {
       sessionEndedRef.current = true;
       finishSession();
@@ -996,6 +1060,45 @@ export default function StagePage({ params }: StagePageProps) {
       if (first) await announceItemStart(first, token);
     })();
   };
+
+  // Session-complete keyboard shortcuts. The typing input is disabled once
+  // sessionComplete is true, so single letters are safe to use as mnemonics
+  // here (N/R/H can never collide with a drill letter, unlike during an
+  // active session — see the comment in handleKeyDown). Listens on
+  // document rather than the (now-disabled) input so the student never has
+  // to Tab to a button to act on their result.
+  useEffect(() => {
+    if (!sessionComplete) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      const hasNext = !!levelUpInfo && !!getNextStageRoute(stage.id);
+
+      if (key === "enter" || key === "n") {
+        e.preventDefault();
+        if (hasNext) {
+          router.push(`/stage/${getNextStageRoute(stage.id)}`);
+        } else {
+          handleRestart();
+        }
+        return;
+      }
+      if (key === "r") {
+        e.preventDefault();
+        handleRestart();
+        return;
+      }
+      if (key === "h") {
+        e.preventDefault();
+        router.push("/");
+        return;
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionComplete, levelUpInfo, stage.id]);
 
   const togglePause = () => {
     setIsPaused((prev) => {
@@ -1304,9 +1407,20 @@ export default function StagePage({ params }: StagePageProps) {
           </div>
         )}
 
-        {/* Keyboard shortcuts */}
+        {/* Keyboard shortcuts — kept in sync with SHORTCUT_HELP, which is
+            what's actually spoken to the student. This visible legend is a
+            reference for sighted users/trainers; it isn't the primary way
+            a blind student learns the commands (the spoken announcement
+            is), so it's fine for it to be denser than a sighted-first UI
+            would normally show. */}
         <div className="text-center text-xs text-text-muted pt-4 border-t border-white/5">
           <div className="flex flex-wrap justify-center gap-4">
+            <span>
+              <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
+                Any letter key
+              </kbd>
+              <span className="ml-1">Start / type</span>
+            </span>
             <span>
               <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
                 Space/Enter
@@ -1327,10 +1441,50 @@ export default function StagePage({ params }: StagePageProps) {
             </span>
             <span>
               <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
+                F1
+              </kbd>
+              <span className="ml-1">Repeat commands</span>
+            </span>
+            <span>
+              <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
                 F2
               </kbd>
               <span className="ml-1">Repeat word</span>
             </span>
+            <span>
+              <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
+                F3
+              </kbd>
+              <span className="ml-1">Restart stage</span>
+            </span>
+            <span>
+              <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
+                F4
+              </kbd>
+              <span className="ml-1">Go home</span>
+            </span>
+            {sessionComplete && (
+              <>
+                <span>
+                  <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
+                    N
+                  </kbd>
+                  <span className="ml-1">Next / practice again</span>
+                </span>
+                <span>
+                  <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
+                    R
+                  </kbd>
+                  <span className="ml-1">Restart</span>
+                </span>
+                <span>
+                  <kbd className="px-2 py-1 bg-dark-secondary rounded text-text font-mono text-xs border border-white/10">
+                    H
+                  </kbd>
+                  <span className="ml-1">Home</span>
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>

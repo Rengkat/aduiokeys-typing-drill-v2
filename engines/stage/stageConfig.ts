@@ -53,16 +53,23 @@ const STAGE_ICONS: Record<StageRouteId, LucideIcon> = {
 // whole words/sentences at the higher stages. Durations below give the
 // biggest relief where the announcement-to-timer ratio is worst and taper
 // off higher up.
+//
+// Deliberately generous (roughly double the original pacing): the goal is
+// real muscle-memory repetition per stage — a blind student should get
+// enough uninterrupted time on a stage's own item set (see
+// STAGE_ITEM_COUNTS below) to actually drill it before moving on, not just
+// sample it. Session length always scales with item count so a student is
+// never cut off by the clock partway through the queue at a reasonable pace.
 const STAGE_DURATIONS: Record<StageRouteId, number> = {
-  "1": 90,
-  "2": 90,
-  "3": 105,
-  "4": 105,
-  "5": 120,
-  "6": 120,
-  "7": 135,
-  "8": 150,
-  "9": 180,
+  "1": 180,
+  "2": 180,
+  "3": 210,
+  "4": 210,
+  "5": 240,
+  "6": 240,
+  "7": 270,
+  "8": 300,
+  "9": 360,
 };
 
 export interface StageConfig {
@@ -148,7 +155,14 @@ export function buildWordQueue(stage: StageConfig, options: BuildQueueOptions = 
 
   // Key drills repeat a small alphabet many times over a session; word
   // stages want more variety; sentences are long, so fewer of them.
-  const defaultItemCount = stage.mode === "keys" ? 40 : stage.mode === "words" ? 25 : 8;
+  //
+  // Roughly doubled from the original counts (40/25/8) so each stage gives
+  // real drilling volume — enough repetitions of the stage's keys/words/
+  // sentences to build muscle memory — before a student ever levels up.
+  // Paired with the longer STAGE_DURATIONS above so there's actually time
+  // to get through the larger queue at a comfortable, accurate pace rather
+  // than rushing.
+  const defaultItemCount = stage.mode === "keys" ? 80 : stage.mode === "words" ? 50 : 16;
 
   const lesson = generateLesson({
     stage: stage.stageId,

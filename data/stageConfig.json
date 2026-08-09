@@ -18,7 +18,7 @@
       "metric": "kpm",
       "targetValue": 12,
       "targetAccuracy": 95,
-      "description": "First contact with the keyboard \u2014 just A S D F J K L ; . Accuracy matters far more than speed here.",
+      "description": "First contact with the keyboard — just A S D F J K L ; . Accuracy matters far more than speed here.",
       "celebration": "You've found your home base! Every word you'll ever type starts from these keys."
     },
     {
@@ -29,7 +29,7 @@
       "metric": "kpm",
       "targetValue": 18,
       "targetAccuracy": 95,
-      "description": "Adds G and H \u2014 the last two home row keys \u2014 and builds real fluency across the full row.",
+      "description": "Adds G and H — the last two home row keys — plus the apostrophe and its shifted colon and quote mark, completing the full row.",
       "celebration": "Home row mastered, start to finish. Your fingers know the way now."
     },
     {
@@ -40,7 +40,7 @@
       "metric": "kpm",
       "targetValue": 22,
       "targetAccuracy": 94,
-      "description": "Q W E R T Y U I O P \u2014 reaching up from home row.",
+      "description": "Q W E R T Y U I O P, plus the bracket, backslash, brace, and pipe keys — reaching up from home row.",
       "celebration": "You've climbed the top row! That's over half the alphabet under your fingers."
     },
     {
@@ -51,7 +51,7 @@
       "metric": "kpm",
       "targetValue": 26,
       "targetAccuracy": 93,
-      "description": "Z X C V B N M , . / \u2014 reaching down from home row. Completes the full alphabet.",
+      "description": "Z X C V B N M , . / plus their shifted forms — reaching down from home row. Completes the full alphabet and its punctuation.",
       "celebration": "The entire alphabet is yours now. That's the hardest part behind you."
     },
     {
@@ -62,7 +62,7 @@
       "metric": "kpm",
       "targetValue": 22,
       "targetAccuracy": 90,
-      "description": "Number row plus common shifted symbols. A gentler accuracy bar \u2014 these reaches are genuinely harder.",
+      "description": "The full number row — digits, backtick, hyphen, equals — plus every shifted symbol above them. A gentler accuracy bar — these reaches are genuinely harder.",
       "celebration": "Numbers and symbols down. You can type anything a keyboard has to offer."
     },
     {
@@ -85,7 +85,7 @@
       "targetValue": 12,
       "targetAccuracy": 87,
       "description": "4-8 letter words, each paired with a trailing punctuation mark to practice mid-flow symbol reaches.",
-      "celebration": "Words and punctuation together \u2014 you're typing the way real writing actually looks."
+      "celebration": "Words and punctuation together — you're typing the way real writing actually looks."
     },
     {
       "id": "Stage_8",
@@ -95,7 +95,7 @@
       "metric": "wpm",
       "targetValue": 16,
       "targetAccuracy": 88,
-      "description": "Short sentences first, building up to full paragraphs, forms, and code \u2014 real-world typing.",
+      "description": "Short sentences first, building up to full paragraphs, forms, and code — real-world typing.",
       "celebration": "You're a fluent typist. Every stage you climbed brought you here."
     },
     {
@@ -106,8 +106,8 @@
       "metric": "wpm",
       "targetValue": 18,
       "targetAccuracy": 88,
-      "description": "Full-length paragraph sentences \u2014 the advanced/long-form pool that Stage 8 never actually surfaced. Real sustained typing, not just short bursts.",
-      "celebration": "Long-form paragraphs, start to finish \u2014 that's the whole curriculum. You're a fluent typist."
+      "description": "Full-length paragraph sentences — the advanced/long-form pool that Stage 8 never actually surfaced. Real sustained typing, not just short bursts.",
+      "celebration": "Long-form paragraphs, start to finish — that's the whole curriculum. You're a fluent typist."
     }
   ]
 }
