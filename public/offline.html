@@ -1,17 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AudioKeys - Offline</title>
   <style>
-    html, body {
+    html,
+    body {
       height: 100%;
       margin: 0;
       background-color: #0a0a1a;
       color: #e5e7eb;
       font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
     }
+
     main {
       min-height: 100%;
       display: flex;
@@ -22,16 +25,19 @@
       padding: 24px;
       box-sizing: border-box;
     }
+
     h1 {
       font-size: 1.5rem;
       margin-bottom: 8px;
       color: #e5e7eb;
     }
+
     p {
       color: #9ca3af;
       max-width: 32rem;
       line-height: 1.5;
     }
+
     button {
       margin-top: 24px;
       background-color: #6c63ff;
@@ -42,12 +48,14 @@
       font-size: 1rem;
       cursor: pointer;
     }
+
     button:focus-visible {
       outline: 3px solid #7c73ff;
       outline-offset: 2px;
     }
   </style>
 </head>
+
 <body>
   <main role="main" aria-live="polite">
     <h1>You're offline</h1>
@@ -58,4 +66,5 @@
     <button type="button" onclick="window.location.reload()">Try again</button>
   </main>
 </body>
+
 </html>

@@ -17,10 +17,15 @@ const SHELL_ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(SHELL_CACHE)
-      .then((cache) => cache.addAll(SHELL_ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(SHELL_CACHE).then((cache) =>
+      Promise.allSettled(
+        SHELL_ASSETS.map((url) =>
+          cache.add(url).catch((err) => console.warn(`Failed to cache ${url}`, err))
+        )
+      )
+    )
+    // no self.skipWaiting() here — let the new SW wait until old tabs close
+    // or the user reloads, so in-flight sessions don't break mid-use.
   );
 });
 
